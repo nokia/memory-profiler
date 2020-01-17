@@ -1,12 +1,12 @@
-extern crate libc;
 extern crate jemalloc_sys as ffi;
 extern crate jemallocator;
+extern crate libc;
 
-use std::ptr;
 use std::mem;
+use std::ptr;
 
-use libc::{c_void, c_char};
 use jemallocator::Jemalloc;
+use libc::{c_char, c_void};
 
 #[global_allocator]
 static A: Jemalloc = Jemalloc;
@@ -35,11 +35,13 @@ fn test_mallctl() {
     let field = "stats.allocated\0";
     let mut code;
     code = unsafe {
-        ffi::mallctl(field.as_ptr() as *const _,
-                       &mut allocated as *mut _ as *mut c_void,
-                       &mut val_len,
-                       ptr::null_mut(),
-                       0)
+        ffi::mallctl(
+            field.as_ptr() as *const _,
+            &mut allocated as *mut _ as *mut c_void,
+            &mut val_len,
+            ptr::null_mut(),
+            0,
+        )
     };
     assert_eq!(code, 0);
     assert!(allocated > 0);
@@ -52,12 +54,14 @@ fn test_mallctl() {
     assert_eq!(code, 0);
     let mut allocated_by_mib = 0;
     let code = unsafe {
-        ffi::mallctlbymib(mib.as_ptr(),
-                            mib_len,
-                            &mut allocated_by_mib as *mut _ as *mut c_void,
-                            &mut val_len,
-                            ptr::null_mut(),
-                            0)
+        ffi::mallctlbymib(
+            mib.as_ptr(),
+            mib_len,
+            &mut allocated_by_mib as *mut _ as *mut c_void,
+            &mut val_len,
+            ptr::null_mut(),
+            0,
+        )
     };
     assert_eq!(code, 0);
     assert_eq!(allocated_by_mib, allocated);
@@ -80,7 +84,8 @@ fn test_stats() {
     unsafe {
         ffi::malloc_stats_print(write_cb, &mut ctx as *mut _ as *mut c_void, ptr::null());
     }
-    assert_ne!(ctx.called_times,
-               0,
-               "print should be triggered at lease once.");
+    assert_ne!(
+        ctx.called_times, 0,
+        "print should be triggered at lease once."
+    );
 }

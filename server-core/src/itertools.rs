@@ -17,17 +17,20 @@ mod size_hint {
 
 #[derive(Clone, Debug)]
 pub struct CoalesceCore<I>
-    where I: Iterator
+where
+    I: Iterator,
 {
     iter: I,
     last: Option<I::Item>,
 }
 
 impl<I> CoalesceCore<I>
-    where I: Iterator
+where
+    I: Iterator,
 {
     fn next_with<F>(&mut self, mut f: F) -> Option<I::Item>
-        where F: FnMut(I::Item, I::Item) -> Result<I::Item, (I::Item, I::Item)>
+    where
+        F: FnMut(I::Item, I::Item) -> Result<I::Item, (I::Item, I::Item)>,
     {
         // this fuses the iterator
         let mut last = match self.last.take() {
@@ -48,8 +51,7 @@ impl<I> CoalesceCore<I>
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (low, hi) = size_hint::add_scalar(self.iter.size_hint(),
-                                              self.last.is_some() as usize);
+        let (low, hi) = size_hint::add_scalar(self.iter.size_hint(), self.last.is_some() as usize);
         ((low > 0) as usize, hi)
     }
 }
@@ -59,7 +61,8 @@ impl<I> CoalesceCore<I>
 /// See [`.coalesce()`](../trait.Itertools.html#method.coalesce) for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub struct Coalesce<I, F>
-    where I: Iterator
+where
+    I: Iterator,
 {
     iter: CoalesceCore<I>,
     f: F,
@@ -67,7 +70,8 @@ pub struct Coalesce<I, F>
 
 /// Create a new `Coalesce`.
 pub fn coalesce<I, F>(mut iter: I, f: F) -> Coalesce<I, F>
-    where I: Iterator
+where
+    I: Iterator,
 {
     Coalesce {
         iter: CoalesceCore {
@@ -79,8 +83,9 @@ pub fn coalesce<I, F>(mut iter: I, f: F) -> Coalesce<I, F>
 }
 
 impl<I, F> Iterator for Coalesce<I, F>
-    where I: Iterator,
-          F: FnMut(I::Item, I::Item) -> Result<I::Item, (I::Item, I::Item)>
+where
+    I: Iterator,
+    F: FnMut(I::Item, I::Item) -> Result<I::Item, (I::Item, I::Item)>,
 {
     type Item = I::Item;
 
@@ -93,7 +98,7 @@ impl<I, F> Iterator for Coalesce<I, F>
     }
 }
 
-pub trait Itertools : Iterator {
+pub trait Itertools: Iterator {
     /// Return an iterator adaptor that uses the passed-in closure to
     /// optionally merge together consecutive elements.
     ///
@@ -109,12 +114,12 @@ pub trait Itertools : Iterator {
     ///
     /// This iterator is *fused*.
     fn coalesce<F>(self, f: F) -> Coalesce<Self, F>
-        where Self: Sized,
-              F: FnMut(Self::Item, Self::Item)
-                       -> Result<Self::Item, (Self::Item, Self::Item)>
+    where
+        Self: Sized,
+        F: FnMut(Self::Item, Self::Item) -> Result<Self::Item, (Self::Item, Self::Item)>,
     {
         coalesce(self, f)
     }
 }
 
-impl<T: ?Sized> Itertools for T where T: Iterator { }
+impl<T: ?Sized> Itertools for T where T: Iterator {}

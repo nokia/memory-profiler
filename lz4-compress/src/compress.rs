@@ -4,7 +4,7 @@
 //! high performance. It has fixed memory usage, which contrary to other approachs, makes it less
 //! memory hungry.
 
-use byteorder::{NativeEndian, ByteOrder};
+use byteorder::{ByteOrder, NativeEndian};
 
 /// Duplication dictionary size.
 ///
@@ -109,7 +109,9 @@ fn each_u32_window(slice: &[u8], mut steps: usize, mut callback: impl FnMut(u32)
 
 #[test]
 fn test_each_u32_window() {
-    let slice = [0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA];
+    let slice = [
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA,
+    ];
     fn run(slice: &[u8], steps: usize) -> Vec<u32> {
         let mut output = Vec::new();
         each_u32_window(slice, steps, |value| {
@@ -155,12 +157,11 @@ fn common_prefix_length(lhs: &[u8], rhs: &[u8]) -> usize {
             ap = ap.add(4);
             bp = bp.add(4);
             if a != b {
-                let zeros =
-                    if cfg!(target_endian = "little") {
-                        (a ^ b).trailing_zeros()
-                    } else {
-                        (a ^ b).leading_zeros()
-                    };
+                let zeros = if cfg!(target_endian = "little") {
+                    (a ^ b).trailing_zeros()
+                } else {
+                    (a ^ b).leading_zeros()
+                };
                 count += zeros as usize / 8;
                 return count;
             }
@@ -221,7 +222,7 @@ impl<'a> Encoder<'a> {
         let input = self.input.get(self.cur..self.cur + steps + 7);
         let input = match input {
             Some(input) => input,
-            None => return self.go_forward_slow(steps)
+            None => return self.go_forward_slow(steps),
         };
 
         each_u32_window(input, steps, |x| {
@@ -302,8 +303,9 @@ impl<'a> Encoder<'a> {
         // - We can address up to 16-bit offset, hence we are only able to address the candidate if
         //   its offset is less than or equals to 0xFFFF.
         if candidate != !0
-           && self.get_batch(candidate) == self.get_batch_at_cursor()
-           && self.cur - candidate <= 0xFFFF {
+            && self.get_batch(candidate) == self.get_batch_at_cursor()
+            && self.cur - candidate <= 0xFFFF
+        {
             // Calculate the "extension bytes", i.e. the duplicate bytes beyond the batch. These
             // are the number of prefix bytes shared between the match and needle.
             let lhs = &self.input[self.cur + 4..];
@@ -318,7 +320,9 @@ impl<'a> Encoder<'a> {
                 offset: (self.cur - candidate) as u16,
                 extra_bytes: ext,
             })
-        } else { None }
+        } else {
+            None
+        }
     }
 
     /// Write an integer to the output in LSIC format.
@@ -408,7 +412,8 @@ impl<'a> Encoder<'a> {
             }
 
             // Now, write the actual literals.
-            self.output.extend_from_slice(&self.input[start..start + block.lit_len]);
+            self.output
+                .extend_from_slice(&self.input[start..start + block.lit_len]);
 
             if let Some(Duplicate { offset, .. }) = block.dup {
                 // Wait! There's more. Now, we encode the duplicates section.
@@ -436,7 +441,8 @@ pub fn compress_into(input: &[u8], output: &mut Vec<u8>) {
         output: output,
         cur: 0,
         dict: [!0; DICTIONARY_SIZE],
-    }.complete();
+    }
+    .complete();
 }
 
 /// Compress all bytes of `input`.

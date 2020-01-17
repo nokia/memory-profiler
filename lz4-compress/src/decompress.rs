@@ -1,6 +1,6 @@
 //! The decompression algorithm.
 
-use byteorder::{LittleEndian, ByteOrder};
+use byteorder::{ByteOrder, LittleEndian};
 
 quick_error! {
     /// An error representing invalid compressed data.
@@ -246,7 +246,9 @@ impl<'a> Decoder<'a> {
 
             // If the input stream is emptied, we break out of the loop. This is only the case
             // in the end of the stream, since the block is intact otherwise.
-            if self.input.is_empty() { break; }
+            if self.input.is_empty() {
+                break;
+            }
 
             // Now, we read the duplicates section.
             self.read_duplicate_section()?;
@@ -263,7 +265,8 @@ pub fn decompress_into(input: &[u8], output: &mut Vec<u8>) -> Result<(), Error> 
         input: input,
         output: output,
         token: 0,
-    }.complete()?;
+    }
+    .complete()?;
 
     Ok(())
 }
@@ -289,7 +292,10 @@ mod test {
 
     #[test]
     fn multiple_repeated_blocks() {
-        assert_eq!(decompress(&[0x11, b'a', 1, 0, 0x22, b'b', b'c', 2, 0]).unwrap(), b"aaaaaabcbcbcbc");
+        assert_eq!(
+            decompress(&[0x11, b'a', 1, 0, 0x22, b'b', b'c', 2, 0]).unwrap(),
+            b"aaaaaabcbcbcbc"
+        );
     }
 
     #[test]

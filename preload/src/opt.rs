@@ -6,20 +6,20 @@ pub struct Opts {
     is_initialized: bool,
 
     pub base_server_port: u16,
-    pub chown_output_to: Option< u32 >,
+    pub chown_output_to: Option<u32>,
     pub disabled_by_default: bool,
     pub enable_broadcasts: bool,
     pub enable_server: bool,
     pub enable_shadow_stack: bool,
     pub grab_backtraces_on_free: bool,
-    pub include_file: Option< String >,
-    pub output_path_pattern: Cow< 'static, str >,
+    pub include_file: Option<String>,
+    pub output_path_pattern: Cow<'static, str>,
     pub precise_timestamps: bool,
     pub register_sigusr1: bool,
     pub register_sigusr2: bool,
     pub use_perf_event_open: bool,
     pub write_binaries_to_output: bool,
-    pub zero_memory: bool
+    pub zero_memory: bool,
 }
 
 static mut OPTS: Opts = Opts {
@@ -33,54 +33,57 @@ static mut OPTS: Opts = Opts {
     enable_shadow_stack: true,
     grab_backtraces_on_free: false,
     include_file: None,
-    output_path_pattern: Cow::Borrowed( "memory-profiling_%e_%t_%p.dat" ),
+    output_path_pattern: Cow::Borrowed("memory-profiling_%e_%t_%p.dat"),
     precise_timestamps: false,
     register_sigusr1: true,
     register_sigusr2: true,
     use_perf_event_open: true,
     write_binaries_to_output: true,
-    zero_memory: false
+    zero_memory: false,
 };
 
 trait ParseVar: Sized {
-    fn parse_var( value: &OsStr ) -> Option< Self >;
+    fn parse_var(value: &OsStr) -> Option<Self>;
 }
 
 impl ParseVar for bool {
-    fn parse_var( value: &OsStr ) -> Option< Self > {
-        Some( value == "1" || value == "true" )
+    fn parse_var(value: &OsStr) -> Option<Self> {
+        Some(value == "1" || value == "true")
     }
 }
 
 impl ParseVar for u16 {
-    fn parse_var( value: &OsStr ) -> Option< Self > {
+    fn parse_var(value: &OsStr) -> Option<Self> {
         value.to_str()?.parse().ok()
     }
 }
 
 impl ParseVar for u32 {
-    fn parse_var( value: &OsStr ) -> Option< Self > {
+    fn parse_var(value: &OsStr) -> Option<Self> {
         value.to_str()?.parse().ok()
     }
 }
 
 impl ParseVar for String {
-    fn parse_var( value: &OsStr ) -> Option< Self > {
-        value.to_str().map( |value| value.into() )
+    fn parse_var(value: &OsStr) -> Option<Self> {
+        value.to_str().map(|value| value.into())
     }
 }
 
-impl< 'a > ParseVar for Cow< 'a, str > {
-    fn parse_var( value: &OsStr ) -> Option< Self > {
-        let value = String::parse_var( value )?;
-        Some( value.into() )
+impl<'a> ParseVar for Cow<'a, str> {
+    fn parse_var(value: &OsStr) -> Option<Self> {
+        let value = String::parse_var(value)?;
+        Some(value.into())
     }
 }
 
-impl< T > ParseVar for Option< T > where T: ParseVar {
-    fn parse_var( value: &OsStr ) -> Option< Self > {
-        if let Some( value ) = T::parse_var( value ) {
-            Some( Some( value ) )
+impl<T> ParseVar for Option<T>
+where
+    T: ParseVar,
+{
+    fn parse_var(value: &OsStr) -> Option<Self> {
+        if let Some(value) = T::parse_var(value) {
+            Some(Some(value))
         } else {
             None
         }
@@ -102,7 +105,7 @@ macro_rules! opts {
 }
 
 pub unsafe fn initialize() {
-    info!( "Options:" );
+    info!("Options:");
 
     let opts = &mut OPTS;
     opts! {
@@ -129,7 +132,7 @@ pub unsafe fn initialize() {
 #[inline]
 pub fn get() -> &'static Opts {
     let opts = unsafe { &OPTS };
-    debug_assert!( opts.is_initialized );
+    debug_assert!(opts.is_initialized);
 
     opts
 }
@@ -146,14 +149,14 @@ pub fn emit_partial_backtraces() -> bool {
 
     lazy_static! {
         static ref VALUE: bool = {
-            let value = env::var_os( "MEMORY_PROFILER_EMIT_PARTIAL_BACKTRACES" )
-                .map( |value| value == "1" )
-                .unwrap_or( true );
+            let value = env::var_os("MEMORY_PROFILER_EMIT_PARTIAL_BACKTRACES")
+                .map(|value| value == "1")
+                .unwrap_or(true);
 
             if value {
-                info!( "Will emit partial backtraces" );
+                info!("Will emit partial backtraces");
             } else {
-                info!( "Will NOT emit partial backtraces" );
+                info!("Will NOT emit partial backtraces");
             }
 
             value

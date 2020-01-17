@@ -1,5 +1,5 @@
-extern crate jemallocator;
 extern crate jemalloc_sys;
+extern crate jemallocator;
 
 // Work around https://github.com/alexcrichton/jemallocator/issues/19
 #[global_allocator]

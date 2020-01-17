@@ -3,31 +3,34 @@
 #![feature(test, global_allocator, allocator_api)]
 
 extern crate jemallocator;
-extern crate test;
 extern crate libc;
+extern crate test;
 
-use std::heap::{Alloc, Layout, Excess};
+use jemallocator::Jemalloc;
+use libc::c_int;
+use std::heap::{Alloc, Excess, Layout};
 use std::ptr;
 use test::Bencher;
-use libc::c_int;
-use jemallocator::Jemalloc;
 
 #[global_allocator]
 static A: Jemalloc = Jemalloc;
 
 // FIXME: replace with utils::mallocx_align
-#[cfg(all(any(target_arch = "arm",
-              target_arch = "mips",
-              target_arch = "mipsel",
-              target_arch = "powerpc")))]
+#[cfg(all(any(
+    target_arch = "arm",
+    target_arch = "mips",
+    target_arch = "mipsel",
+    target_arch = "powerpc"
+)))]
 const MIN_ALIGN: usize = 8;
-#[cfg(all(any(target_arch = "x86",
-              target_arch = "x86_64",
-              target_arch = "aarch64",
-              target_arch = "powerpc64",
-              target_arch = "powerpc64le")))]
+#[cfg(all(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "powerpc64",
+    target_arch = "powerpc64le"
+)))]
 const MIN_ALIGN: usize = 16;
-
 
 // FIXME: replace with utils::mallocx_align
 fn mallocx_align(a: usize) -> c_int {
@@ -54,7 +57,7 @@ macro_rules! rt_mallocx {
                 jemalloc::sdallocx(ptr, $size, flags);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_mallocx_nallocx {
@@ -71,7 +74,7 @@ macro_rules! rt_mallocx_nallocx {
                 jemalloc::sdallocx(ptr, rsz, flags);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_alloc_layout_checked {
@@ -85,7 +88,7 @@ macro_rules! rt_alloc_layout_checked {
                 Jemalloc.dealloc(ptr, layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_alloc_layout_unchecked {
@@ -99,7 +102,7 @@ macro_rules! rt_alloc_layout_unchecked {
                 Jemalloc.dealloc(ptr, layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_alloc_excess_unused {
@@ -110,10 +113,10 @@ macro_rules! rt_alloc_excess_unused {
                 let layout = Layout::from_size_align($size, $align).unwrap();
                 let Excess(ptr, _) = Jemalloc.alloc_excess(layout.clone()).unwrap();
                 test::black_box(ptr);
-                Jemalloc.dealloc(ptr, layout); 
+                Jemalloc.dealloc(ptr, layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_alloc_excess_used {
@@ -125,10 +128,10 @@ macro_rules! rt_alloc_excess_used {
                 let Excess(ptr, excess) = Jemalloc.alloc_excess(layout.clone()).unwrap();
                 test::black_box(ptr);
                 test::black_box(excess);
-                Jemalloc.dealloc(ptr, layout); 
+                Jemalloc.dealloc(ptr, layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_mallocx_zeroed {
@@ -143,7 +146,7 @@ macro_rules! rt_mallocx_zeroed {
                 jemalloc::sdallocx(ptr, $size, flags);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_calloc {
@@ -159,7 +162,7 @@ macro_rules! rt_calloc {
                 jemalloc::sdallocx(ptr, $size, 0);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_realloc_naive {
@@ -175,8 +178,7 @@ macro_rules! rt_realloc_naive {
                 let new_layout = Layout::from_size_align(2 * $size, $align).unwrap();
                 let ptr = {
                     let new_ptr = Jemalloc.alloc(new_layout.clone()).unwrap();
-                    ptr::copy_nonoverlapping(
-                        ptr as *const u8, new_ptr, layout.size());
+                    ptr::copy_nonoverlapping(ptr as *const u8, new_ptr, layout.size());
                     Jemalloc.dealloc(ptr, layout);
                     new_ptr
                 };
@@ -185,7 +187,7 @@ macro_rules! rt_realloc_naive {
                 Jemalloc.dealloc(ptr, new_layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_realloc {
@@ -204,7 +206,7 @@ macro_rules! rt_realloc {
                 Jemalloc.dealloc(ptr, new_layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_realloc_excess_unused {
@@ -217,15 +219,15 @@ macro_rules! rt_realloc_excess_unused {
                 test::black_box(ptr);
 
                 let new_layout = Layout::from_size_align(2 * $size, $align).unwrap();
-                let Excess(ptr, _) = Jemalloc.realloc_excess(
-                    ptr, layout, new_layout.clone()
-                ).unwrap();
+                let Excess(ptr, _) = Jemalloc
+                    .realloc_excess(ptr, layout, new_layout.clone())
+                    .unwrap();
                 test::black_box(ptr);
 
                 Jemalloc.dealloc(ptr, new_layout);
             });
         }
-    }
+    };
 }
 
 macro_rules! rt_realloc_excess_used {
@@ -238,16 +240,16 @@ macro_rules! rt_realloc_excess_used {
                 test::black_box(ptr);
 
                 let new_layout = Layout::from_size_align(2 * $size, $align).unwrap();
-                let Excess(ptr, excess) = Jemalloc.realloc_excess(
-                    ptr, layout, new_layout.clone()
-                ).unwrap();
+                let Excess(ptr, excess) = Jemalloc
+                    .realloc_excess(ptr, layout, new_layout.clone())
+                    .unwrap();
                 test::black_box(ptr);
                 test::black_box(excess);
 
                 Jemalloc.dealloc(ptr, new_layout);
             });
         }
-    }
+    };
 }
 
 // 1 byte alignment
@@ -492,12 +494,20 @@ rt_mallocx!(rt_pow2_4194304bytes_1align_mallocx, 4194304, 1);
 rt_mallocx_zeroed!(rt_pow2_4194304bytes_1align_mallocx_zeroed, 4194304, 1);
 rt_mallocx_nallocx!(rt_pow2_4194304bytes_1align_mallocx_nallocx, 4194304, 1);
 rt_alloc_layout_checked!(rt_pow2_4194304bytes_1align_alloc_layout_checked, 4194304, 1);
-rt_alloc_layout_unchecked!(rt_pow2_4194304bytes_1align_alloc_layout_unchecked, 4194304, 1);
+rt_alloc_layout_unchecked!(
+    rt_pow2_4194304bytes_1align_alloc_layout_unchecked,
+    4194304,
+    1
+);
 rt_alloc_excess_unused!(rt_pow2_4194304bytes_1align_alloc_excess_unused, 4194304, 1);
 rt_alloc_excess_used!(rt_pow2_4194304bytes_1align_alloc_excess_used, 4194304, 1);
 rt_realloc_naive!(rt_pow2_4194304bytes_1align_realloc_naive, 4194304, 1);
 rt_realloc!(rt_pow2_4194304bytes_1align_realloc, 4194304, 1);
-rt_realloc_excess_unused!(rt_pow2_4194304bytes_1align_realloc_excess_unused, 4194304, 1);
+rt_realloc_excess_unused!(
+    rt_pow2_4194304bytes_1align_realloc_excess_unused,
+    4194304,
+    1
+);
 rt_realloc_excess_used!(rt_pow2_4194304bytes_1align_realloc_excess_used, 4194304, 1);
 
 // Even
@@ -571,92 +581,136 @@ rt_mallocx!(rt_even_1000000bytes_1align_mallocx, 1000000, 1);
 rt_mallocx_zeroed!(rt_even_1000000bytes_1align_mallocx_zeroed, 1000000, 1);
 rt_mallocx_nallocx!(rt_even_1000000bytes_1align_mallocx_nallocx, 1000000, 1);
 rt_alloc_layout_checked!(rt_even_1000000bytes_1align_alloc_layout_checked, 1000000, 1);
-rt_alloc_layout_unchecked!(rt_even_1000000bytes_1align_alloc_layout_unchecked, 1000000, 1);
+rt_alloc_layout_unchecked!(
+    rt_even_1000000bytes_1align_alloc_layout_unchecked,
+    1000000,
+    1
+);
 rt_alloc_excess_unused!(rt_even_1000000bytes_1align_alloc_excess_unused, 1000000, 1);
 rt_alloc_excess_used!(rt_even_1000000bytes_1align_alloc_excess_used, 1000000, 1);
 rt_realloc_naive!(rt_even_1000000bytes_1align_realloc_naive, 1000000, 1);
 rt_realloc!(rt_even_1000000bytes_1align_realloc, 1000000, 1);
-rt_realloc_excess_unused!(rt_even_1000000bytes_1align_realloc_excess_unused, 1000000, 1);
+rt_realloc_excess_unused!(
+    rt_even_1000000bytes_1align_realloc_excess_unused,
+    1000000,
+    1
+);
 rt_realloc_excess_used!(rt_even_1000000bytes_1align_realloc_excess_used, 1000000, 1);
 
 // Odd:
-rt_calloc!(rt_odd_10bytes_1align_calloc, 10- 1, 1);
-rt_mallocx!(rt_odd_10bytes_1align_mallocx, 10- 1, 1);
-rt_mallocx_zeroed!(rt_odd_10bytes_1align_mallocx_zeroed, 10- 1, 1);
-rt_mallocx_nallocx!(rt_odd_10bytes_1align_mallocx_nallocx, 10- 1, 1);
-rt_alloc_layout_checked!(rt_odd_10bytes_1align_alloc_layout_checked, 10- 1, 1);
-rt_alloc_layout_unchecked!(rt_odd_10bytes_1align_alloc_layout_unchecked, 10- 1, 1);
-rt_alloc_excess_unused!(rt_odd_10bytes_1align_alloc_excess_unused, 10- 1, 1);
-rt_alloc_excess_used!(rt_odd_10bytes_1align_alloc_excess_used, 10- 1, 1);
-rt_realloc_naive!(rt_odd_10bytes_1align_realloc_naive, 10- 1, 1);
-rt_realloc!(rt_odd_10bytes_1align_realloc, 10- 1, 1);
-rt_realloc_excess_unused!(rt_odd_10bytes_1align_realloc_excess_unused, 10- 1, 1);
-rt_realloc_excess_used!(rt_odd_10bytes_1align_realloc_excess_used, 10- 1, 1);
+rt_calloc!(rt_odd_10bytes_1align_calloc, 10 - 1, 1);
+rt_mallocx!(rt_odd_10bytes_1align_mallocx, 10 - 1, 1);
+rt_mallocx_zeroed!(rt_odd_10bytes_1align_mallocx_zeroed, 10 - 1, 1);
+rt_mallocx_nallocx!(rt_odd_10bytes_1align_mallocx_nallocx, 10 - 1, 1);
+rt_alloc_layout_checked!(rt_odd_10bytes_1align_alloc_layout_checked, 10 - 1, 1);
+rt_alloc_layout_unchecked!(rt_odd_10bytes_1align_alloc_layout_unchecked, 10 - 1, 1);
+rt_alloc_excess_unused!(rt_odd_10bytes_1align_alloc_excess_unused, 10 - 1, 1);
+rt_alloc_excess_used!(rt_odd_10bytes_1align_alloc_excess_used, 10 - 1, 1);
+rt_realloc_naive!(rt_odd_10bytes_1align_realloc_naive, 10 - 1, 1);
+rt_realloc!(rt_odd_10bytes_1align_realloc, 10 - 1, 1);
+rt_realloc_excess_unused!(rt_odd_10bytes_1align_realloc_excess_unused, 10 - 1, 1);
+rt_realloc_excess_used!(rt_odd_10bytes_1align_realloc_excess_used, 10 - 1, 1);
 
-rt_calloc!(rt_odd_100bytes_1align_calloc, 100- 1, 1);
-rt_mallocx!(rt_odd_100bytes_1align_mallocx, 100- 1, 1);
-rt_mallocx_zeroed!(rt_odd_100bytes_1align_mallocx_zeroed, 100- 1, 1);
-rt_mallocx_nallocx!(rt_odd_100bytes_1align_mallocx_nallocx, 100- 1, 1);
-rt_alloc_layout_checked!(rt_odd_100bytes_1align_alloc_layout_checked, 100- 1, 1);
-rt_alloc_layout_unchecked!(rt_odd_100bytes_1align_alloc_layout_unchecked, 100- 1, 1);
-rt_alloc_excess_unused!(rt_odd_100bytes_1align_alloc_excess_unused, 100- 1, 1);
-rt_alloc_excess_used!(rt_odd_100bytes_1align_alloc_excess_used, 100- 1, 1);
-rt_realloc_naive!(rt_odd_100bytes_1align_realloc_naive, 100- 1, 1);
-rt_realloc!(rt_odd_100bytes_1align_realloc, 100- 1, 1);
-rt_realloc_excess_unused!(rt_odd_100bytes_1align_realloc_excess_unused, 100- 1, 1);
-rt_realloc_excess_used!(rt_odd_100bytes_1align_realloc_excess_used, 100- 1, 1);
+rt_calloc!(rt_odd_100bytes_1align_calloc, 100 - 1, 1);
+rt_mallocx!(rt_odd_100bytes_1align_mallocx, 100 - 1, 1);
+rt_mallocx_zeroed!(rt_odd_100bytes_1align_mallocx_zeroed, 100 - 1, 1);
+rt_mallocx_nallocx!(rt_odd_100bytes_1align_mallocx_nallocx, 100 - 1, 1);
+rt_alloc_layout_checked!(rt_odd_100bytes_1align_alloc_layout_checked, 100 - 1, 1);
+rt_alloc_layout_unchecked!(rt_odd_100bytes_1align_alloc_layout_unchecked, 100 - 1, 1);
+rt_alloc_excess_unused!(rt_odd_100bytes_1align_alloc_excess_unused, 100 - 1, 1);
+rt_alloc_excess_used!(rt_odd_100bytes_1align_alloc_excess_used, 100 - 1, 1);
+rt_realloc_naive!(rt_odd_100bytes_1align_realloc_naive, 100 - 1, 1);
+rt_realloc!(rt_odd_100bytes_1align_realloc, 100 - 1, 1);
+rt_realloc_excess_unused!(rt_odd_100bytes_1align_realloc_excess_unused, 100 - 1, 1);
+rt_realloc_excess_used!(rt_odd_100bytes_1align_realloc_excess_used, 100 - 1, 1);
 
-rt_calloc!(rt_odd_1000bytes_1align_calloc, 1000- 1, 1);
-rt_mallocx!(rt_odd_1000bytes_1align_mallocx, 1000- 1, 1);
-rt_mallocx_zeroed!(rt_odd_1000bytes_1align_mallocx_zeroed, 1000- 1, 1);
-rt_mallocx_nallocx!(rt_odd_1000bytes_1align_mallocx_nallocx, 1000- 1, 1);
-rt_alloc_layout_checked!(rt_odd_1000bytes_1align_alloc_layout_checked, 1000- 1, 1);
-rt_alloc_layout_unchecked!(rt_odd_1000bytes_1align_alloc_layout_unchecked, 1000- 1, 1);
-rt_alloc_excess_unused!(rt_odd_1000bytes_1align_alloc_excess_unused, 1000- 1, 1);
-rt_alloc_excess_used!(rt_odd_1000bytes_1align_alloc_excess_used, 1000- 1, 1);
-rt_realloc_naive!(rt_odd_1000bytes_1align_realloc_naive, 1000- 1, 1);
-rt_realloc!(rt_odd_1000bytes_1align_realloc, 1000- 1, 1);
-rt_realloc_excess_unused!(rt_odd_1000bytes_1align_realloc_excess_unused, 1000- 1, 1);
-rt_realloc_excess_used!(rt_odd_1000bytes_1align_realloc_excess_used, 1000- 1, 1);
+rt_calloc!(rt_odd_1000bytes_1align_calloc, 1000 - 1, 1);
+rt_mallocx!(rt_odd_1000bytes_1align_mallocx, 1000 - 1, 1);
+rt_mallocx_zeroed!(rt_odd_1000bytes_1align_mallocx_zeroed, 1000 - 1, 1);
+rt_mallocx_nallocx!(rt_odd_1000bytes_1align_mallocx_nallocx, 1000 - 1, 1);
+rt_alloc_layout_checked!(rt_odd_1000bytes_1align_alloc_layout_checked, 1000 - 1, 1);
+rt_alloc_layout_unchecked!(rt_odd_1000bytes_1align_alloc_layout_unchecked, 1000 - 1, 1);
+rt_alloc_excess_unused!(rt_odd_1000bytes_1align_alloc_excess_unused, 1000 - 1, 1);
+rt_alloc_excess_used!(rt_odd_1000bytes_1align_alloc_excess_used, 1000 - 1, 1);
+rt_realloc_naive!(rt_odd_1000bytes_1align_realloc_naive, 1000 - 1, 1);
+rt_realloc!(rt_odd_1000bytes_1align_realloc, 1000 - 1, 1);
+rt_realloc_excess_unused!(rt_odd_1000bytes_1align_realloc_excess_unused, 1000 - 1, 1);
+rt_realloc_excess_used!(rt_odd_1000bytes_1align_realloc_excess_used, 1000 - 1, 1);
 
-rt_calloc!(rt_odd_10000bytes_1align_calloc, 10000- 1, 1);
-rt_mallocx!(rt_odd_10000bytes_1align_mallocx, 10000- 1, 1);
-rt_mallocx_zeroed!(rt_odd_10000bytes_1align_mallocx_zeroed, 10000- 1, 1);
-rt_mallocx_nallocx!(rt_odd_10000bytes_1align_mallocx_nallocx, 10000- 1, 1);
-rt_alloc_layout_checked!(rt_odd_10000bytes_1align_alloc_layout_checked, 10000- 1, 1);
-rt_alloc_layout_unchecked!(rt_odd_10000bytes_1align_alloc_layout_unchecked, 10000- 1, 1);
-rt_alloc_excess_unused!(rt_odd_10000bytes_1align_alloc_excess_unused, 10000- 1, 1);
-rt_alloc_excess_used!(rt_odd_10000bytes_1align_alloc_excess_used, 10000- 1, 1);
-rt_realloc_naive!(rt_odd_10000bytes_1align_realloc_naive, 10000- 1, 1);
-rt_realloc!(rt_odd_10000bytes_1align_realloc, 10000- 1, 1);
-rt_realloc_excess_unused!(rt_odd_10000bytes_1align_realloc_excess_unused, 10000- 1, 1);
-rt_realloc_excess_used!(rt_odd_10000bytes_1align_realloc_excess_used, 10000- 1, 1);
+rt_calloc!(rt_odd_10000bytes_1align_calloc, 10000 - 1, 1);
+rt_mallocx!(rt_odd_10000bytes_1align_mallocx, 10000 - 1, 1);
+rt_mallocx_zeroed!(rt_odd_10000bytes_1align_mallocx_zeroed, 10000 - 1, 1);
+rt_mallocx_nallocx!(rt_odd_10000bytes_1align_mallocx_nallocx, 10000 - 1, 1);
+rt_alloc_layout_checked!(rt_odd_10000bytes_1align_alloc_layout_checked, 10000 - 1, 1);
+rt_alloc_layout_unchecked!(
+    rt_odd_10000bytes_1align_alloc_layout_unchecked,
+    10000 - 1,
+    1
+);
+rt_alloc_excess_unused!(rt_odd_10000bytes_1align_alloc_excess_unused, 10000 - 1, 1);
+rt_alloc_excess_used!(rt_odd_10000bytes_1align_alloc_excess_used, 10000 - 1, 1);
+rt_realloc_naive!(rt_odd_10000bytes_1align_realloc_naive, 10000 - 1, 1);
+rt_realloc!(rt_odd_10000bytes_1align_realloc, 10000 - 1, 1);
+rt_realloc_excess_unused!(rt_odd_10000bytes_1align_realloc_excess_unused, 10000 - 1, 1);
+rt_realloc_excess_used!(rt_odd_10000bytes_1align_realloc_excess_used, 10000 - 1, 1);
 
-rt_calloc!(rt_odd_100000bytes_1align_calloc, 100000- 1, 1);
-rt_mallocx!(rt_odd_100000bytes_1align_mallocx, 100000- 1, 1);
-rt_mallocx_zeroed!(rt_odd_100000bytes_1align_mallocx_zeroed, 100000- 1, 1);
-rt_mallocx_nallocx!(rt_odd_100000bytes_1align_mallocx_nallocx, 100000- 1, 1);
-rt_alloc_layout_checked!(rt_odd_100000bytes_1align_alloc_layout_checked, 100000- 1, 1);
-rt_alloc_layout_unchecked!(rt_odd_100000bytes_1align_alloc_layout_unchecked, 100000- 1, 1);
-rt_alloc_excess_unused!(rt_odd_100000bytes_1align_alloc_excess_unused, 100000- 1, 1);
-rt_alloc_excess_used!(rt_odd_100000bytes_1align_alloc_excess_used, 100000- 1, 1);
-rt_realloc_naive!(rt_odd_100000bytes_1align_realloc_naive, 100000- 1, 1);
-rt_realloc!(rt_odd_100000bytes_1align_realloc, 100000- 1, 1);
-rt_realloc_excess_unused!(rt_odd_100000bytes_1align_realloc_excess_unused, 100000- 1, 1);
-rt_realloc_excess_used!(rt_odd_100000bytes_1align_realloc_excess_used, 100000- 1, 1);
+rt_calloc!(rt_odd_100000bytes_1align_calloc, 100000 - 1, 1);
+rt_mallocx!(rt_odd_100000bytes_1align_mallocx, 100000 - 1, 1);
+rt_mallocx_zeroed!(rt_odd_100000bytes_1align_mallocx_zeroed, 100000 - 1, 1);
+rt_mallocx_nallocx!(rt_odd_100000bytes_1align_mallocx_nallocx, 100000 - 1, 1);
+rt_alloc_layout_checked!(
+    rt_odd_100000bytes_1align_alloc_layout_checked,
+    100000 - 1,
+    1
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_100000bytes_1align_alloc_layout_unchecked,
+    100000 - 1,
+    1
+);
+rt_alloc_excess_unused!(rt_odd_100000bytes_1align_alloc_excess_unused, 100000 - 1, 1);
+rt_alloc_excess_used!(rt_odd_100000bytes_1align_alloc_excess_used, 100000 - 1, 1);
+rt_realloc_naive!(rt_odd_100000bytes_1align_realloc_naive, 100000 - 1, 1);
+rt_realloc!(rt_odd_100000bytes_1align_realloc, 100000 - 1, 1);
+rt_realloc_excess_unused!(
+    rt_odd_100000bytes_1align_realloc_excess_unused,
+    100000 - 1,
+    1
+);
+rt_realloc_excess_used!(rt_odd_100000bytes_1align_realloc_excess_used, 100000 - 1, 1);
 
-rt_calloc!(rt_odd_1000000bytes_1align_calloc, 1000000- 1, 1);
-rt_mallocx!(rt_odd_1000000bytes_1align_mallocx, 1000000- 1, 1);
-rt_mallocx_zeroed!(rt_odd_1000000bytes_1align_mallocx_zeroed, 1000000- 1, 1);
-rt_mallocx_nallocx!(rt_odd_1000000bytes_1align_mallocx_nallocx, 1000000- 1, 1);
-rt_alloc_layout_checked!(rt_odd_1000000bytes_1align_alloc_layout_checked, 1000000- 1, 1);
-rt_alloc_layout_unchecked!(rt_odd_1000000bytes_1align_alloc_layout_unchecked, 1000000- 1, 1);
-rt_alloc_excess_unused!(rt_odd_1000000bytes_1align_alloc_excess_unused, 1000000- 1, 1);
-rt_alloc_excess_used!(rt_odd_1000000bytes_1align_alloc_excess_used, 1000000- 1, 1);
-rt_realloc_naive!(rt_odd_1000000bytes_1align_realloc_naive, 1000000- 1, 1);
-rt_realloc!(rt_odd_1000000bytes_1align_realloc, 1000000- 1, 1);
-rt_realloc_excess_unused!(rt_odd_1000000bytes_1align_realloc_excess_unused, 1000000- 1, 1);
-rt_realloc_excess_used!(rt_odd_1000000bytes_1align_realloc_excess_used, 1000000- 1, 1);
+rt_calloc!(rt_odd_1000000bytes_1align_calloc, 1000000 - 1, 1);
+rt_mallocx!(rt_odd_1000000bytes_1align_mallocx, 1000000 - 1, 1);
+rt_mallocx_zeroed!(rt_odd_1000000bytes_1align_mallocx_zeroed, 1000000 - 1, 1);
+rt_mallocx_nallocx!(rt_odd_1000000bytes_1align_mallocx_nallocx, 1000000 - 1, 1);
+rt_alloc_layout_checked!(
+    rt_odd_1000000bytes_1align_alloc_layout_checked,
+    1000000 - 1,
+    1
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000000bytes_1align_alloc_layout_unchecked,
+    1000000 - 1,
+    1
+);
+rt_alloc_excess_unused!(
+    rt_odd_1000000bytes_1align_alloc_excess_unused,
+    1000000 - 1,
+    1
+);
+rt_alloc_excess_used!(rt_odd_1000000bytes_1align_alloc_excess_used, 1000000 - 1, 1);
+rt_realloc_naive!(rt_odd_1000000bytes_1align_realloc_naive, 1000000 - 1, 1);
+rt_realloc!(rt_odd_1000000bytes_1align_realloc, 1000000 - 1, 1);
+rt_realloc_excess_unused!(
+    rt_odd_1000000bytes_1align_realloc_excess_unused,
+    1000000 - 1,
+    1
+);
+rt_realloc_excess_used!(
+    rt_odd_1000000bytes_1align_realloc_excess_used,
+    1000000 - 1,
+    1
+);
 
 // primes
 rt_calloc!(rt_primes_3bytes_1align_calloc, 3, 1);
@@ -885,26 +939,54 @@ rt_mallocx!(rt_primes_131071bytes_1align_mallocx, 131071, 1);
 rt_mallocx_zeroed!(rt_primes_131071bytes_1align_mallocx_zeroed, 131071, 1);
 rt_mallocx_nallocx!(rt_primes_131071bytes_1align_mallocx_nallocx, 131071, 1);
 rt_alloc_layout_checked!(rt_primes_131071bytes_1align_alloc_layout_checked, 131071, 1);
-rt_alloc_layout_unchecked!(rt_primes_131071bytes_1align_alloc_layout_unchecked, 131071, 1);
+rt_alloc_layout_unchecked!(
+    rt_primes_131071bytes_1align_alloc_layout_unchecked,
+    131071,
+    1
+);
 rt_alloc_excess_unused!(rt_primes_131071bytes_1align_alloc_excess_unused, 131071, 1);
 rt_alloc_excess_used!(rt_primes_131071bytes_1align_alloc_excess_used, 131071, 1);
 rt_realloc_naive!(rt_primes_131071bytes_1align_realloc_naive, 131071, 1);
 rt_realloc!(rt_primes_131071bytes_1align_realloc, 131071, 1);
-rt_realloc_excess_unused!(rt_primes_131071bytes_1align_realloc_excess_unused, 131071, 1);
+rt_realloc_excess_unused!(
+    rt_primes_131071bytes_1align_realloc_excess_unused,
+    131071,
+    1
+);
 rt_realloc_excess_used!(rt_primes_131071bytes_1align_realloc_excess_used, 131071, 1);
 
 rt_calloc!(rt_primes_4194301bytes_1align_calloc, 4194301, 1);
 rt_mallocx!(rt_primes_4194301bytes_1align_mallocx, 4194301, 1);
 rt_mallocx_zeroed!(rt_primes_4194301bytes_1align_mallocx_zeroed, 4194301, 1);
 rt_mallocx_nallocx!(rt_primes_4194301bytes_1align_mallocx_nallocx, 4194301, 1);
-rt_alloc_layout_checked!(rt_primes_4194301bytes_1align_alloc_layout_checked, 4194301, 1);
-rt_alloc_layout_unchecked!(rt_primes_4194301bytes_1align_alloc_layout_unchecked, 4194301, 1);
-rt_alloc_excess_unused!(rt_primes_4194301bytes_1align_alloc_excess_unused, 4194301, 1);
+rt_alloc_layout_checked!(
+    rt_primes_4194301bytes_1align_alloc_layout_checked,
+    4194301,
+    1
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_4194301bytes_1align_alloc_layout_unchecked,
+    4194301,
+    1
+);
+rt_alloc_excess_unused!(
+    rt_primes_4194301bytes_1align_alloc_excess_unused,
+    4194301,
+    1
+);
 rt_alloc_excess_used!(rt_primes_4194301bytes_1align_alloc_excess_used, 4194301, 1);
 rt_realloc_naive!(rt_primes_4194301bytes_1align_realloc_naive, 4194301, 1);
 rt_realloc!(rt_primes_4194301bytes_1align_realloc, 4194301, 1);
-rt_realloc_excess_unused!(rt_primes_4194301bytes_1align_realloc_excess_unused, 4194301, 1);
-rt_realloc_excess_used!(rt_primes_4194301bytes_1align_realloc_excess_used, 4194301, 1);
+rt_realloc_excess_unused!(
+    rt_primes_4194301bytes_1align_realloc_excess_unused,
+    4194301,
+    1
+);
+rt_realloc_excess_used!(
+    rt_primes_4194301bytes_1align_realloc_excess_used,
+    4194301,
+    1
+);
 
 // 2 bytes alignment
 
@@ -1148,12 +1230,20 @@ rt_mallocx!(rt_pow2_4194304bytes_2align_mallocx, 4194304, 2);
 rt_mallocx_zeroed!(rt_pow2_4194304bytes_2align_mallocx_zeroed, 4194304, 2);
 rt_mallocx_nallocx!(rt_pow2_4194304bytes_2align_mallocx_nallocx, 4194304, 2);
 rt_alloc_layout_checked!(rt_pow2_4194304bytes_2align_alloc_layout_checked, 4194304, 2);
-rt_alloc_layout_unchecked!(rt_pow2_4194304bytes_2align_alloc_layout_unchecked, 4194304, 2);
+rt_alloc_layout_unchecked!(
+    rt_pow2_4194304bytes_2align_alloc_layout_unchecked,
+    4194304,
+    2
+);
 rt_alloc_excess_unused!(rt_pow2_4194304bytes_2align_alloc_excess_unused, 4194304, 2);
 rt_alloc_excess_used!(rt_pow2_4194304bytes_2align_alloc_excess_used, 4194304, 2);
 rt_realloc_naive!(rt_pow2_4194304bytes_2align_realloc_naive, 4194304, 2);
 rt_realloc!(rt_pow2_4194304bytes_2align_realloc, 4194304, 2);
-rt_realloc_excess_unused!(rt_pow2_4194304bytes_2align_realloc_excess_unused, 4194304, 2);
+rt_realloc_excess_unused!(
+    rt_pow2_4194304bytes_2align_realloc_excess_unused,
+    4194304,
+    2
+);
 rt_realloc_excess_used!(rt_pow2_4194304bytes_2align_realloc_excess_used, 4194304, 2);
 
 // Even
@@ -1227,92 +1317,136 @@ rt_mallocx!(rt_even_1000000bytes_2align_mallocx, 1000000, 2);
 rt_mallocx_zeroed!(rt_even_1000000bytes_2align_mallocx_zeroed, 1000000, 2);
 rt_mallocx_nallocx!(rt_even_1000000bytes_2align_mallocx_nallocx, 1000000, 2);
 rt_alloc_layout_checked!(rt_even_1000000bytes_2align_alloc_layout_checked, 1000000, 2);
-rt_alloc_layout_unchecked!(rt_even_1000000bytes_2align_alloc_layout_unchecked, 1000000, 2);
+rt_alloc_layout_unchecked!(
+    rt_even_1000000bytes_2align_alloc_layout_unchecked,
+    1000000,
+    2
+);
 rt_alloc_excess_unused!(rt_even_1000000bytes_2align_alloc_excess_unused, 1000000, 2);
 rt_alloc_excess_used!(rt_even_1000000bytes_2align_alloc_excess_used, 1000000, 2);
 rt_realloc_naive!(rt_even_1000000bytes_2align_realloc_naive, 1000000, 2);
 rt_realloc!(rt_even_1000000bytes_2align_realloc, 1000000, 2);
-rt_realloc_excess_unused!(rt_even_1000000bytes_2align_realloc_excess_unused, 1000000, 2);
+rt_realloc_excess_unused!(
+    rt_even_1000000bytes_2align_realloc_excess_unused,
+    1000000,
+    2
+);
 rt_realloc_excess_used!(rt_even_1000000bytes_2align_realloc_excess_used, 1000000, 2);
 
 // Odd:
-rt_calloc!(rt_odd_10bytes_2align_calloc, 10- 1, 2);
-rt_mallocx!(rt_odd_10bytes_2align_mallocx, 10- 1, 2);
-rt_mallocx_zeroed!(rt_odd_10bytes_2align_mallocx_zeroed, 10- 1, 2);
-rt_mallocx_nallocx!(rt_odd_10bytes_2align_mallocx_nallocx, 10- 1, 2);
-rt_alloc_layout_checked!(rt_odd_10bytes_2align_alloc_layout_checked, 10- 1, 2);
-rt_alloc_layout_unchecked!(rt_odd_10bytes_2align_alloc_layout_unchecked, 10- 1, 2);
-rt_alloc_excess_unused!(rt_odd_10bytes_2align_alloc_excess_unused, 10- 1, 2);
-rt_alloc_excess_used!(rt_odd_10bytes_2align_alloc_excess_used, 10- 1, 2);
-rt_realloc_naive!(rt_odd_10bytes_2align_realloc_naive, 10- 1, 2);
-rt_realloc!(rt_odd_10bytes_2align_realloc, 10- 1, 2);
-rt_realloc_excess_unused!(rt_odd_10bytes_2align_realloc_excess_unused, 10- 1, 2);
-rt_realloc_excess_used!(rt_odd_10bytes_2align_realloc_excess_used, 10- 1, 2);
+rt_calloc!(rt_odd_10bytes_2align_calloc, 10 - 1, 2);
+rt_mallocx!(rt_odd_10bytes_2align_mallocx, 10 - 1, 2);
+rt_mallocx_zeroed!(rt_odd_10bytes_2align_mallocx_zeroed, 10 - 1, 2);
+rt_mallocx_nallocx!(rt_odd_10bytes_2align_mallocx_nallocx, 10 - 1, 2);
+rt_alloc_layout_checked!(rt_odd_10bytes_2align_alloc_layout_checked, 10 - 1, 2);
+rt_alloc_layout_unchecked!(rt_odd_10bytes_2align_alloc_layout_unchecked, 10 - 1, 2);
+rt_alloc_excess_unused!(rt_odd_10bytes_2align_alloc_excess_unused, 10 - 1, 2);
+rt_alloc_excess_used!(rt_odd_10bytes_2align_alloc_excess_used, 10 - 1, 2);
+rt_realloc_naive!(rt_odd_10bytes_2align_realloc_naive, 10 - 1, 2);
+rt_realloc!(rt_odd_10bytes_2align_realloc, 10 - 1, 2);
+rt_realloc_excess_unused!(rt_odd_10bytes_2align_realloc_excess_unused, 10 - 1, 2);
+rt_realloc_excess_used!(rt_odd_10bytes_2align_realloc_excess_used, 10 - 1, 2);
 
-rt_calloc!(rt_odd_100bytes_2align_calloc, 100- 1, 2);
-rt_mallocx!(rt_odd_100bytes_2align_mallocx, 100- 1, 2);
-rt_mallocx_zeroed!(rt_odd_100bytes_2align_mallocx_zeroed, 100- 1, 2);
-rt_mallocx_nallocx!(rt_odd_100bytes_2align_mallocx_nallocx, 100- 1, 2);
-rt_alloc_layout_checked!(rt_odd_100bytes_2align_alloc_layout_checked, 100- 1, 2);
-rt_alloc_layout_unchecked!(rt_odd_100bytes_2align_alloc_layout_unchecked, 100- 1, 2);
-rt_alloc_excess_unused!(rt_odd_100bytes_2align_alloc_excess_unused, 100- 1, 2);
-rt_alloc_excess_used!(rt_odd_100bytes_2align_alloc_excess_used, 100- 1, 2);
-rt_realloc_naive!(rt_odd_100bytes_2align_realloc_naive, 100- 1, 2);
-rt_realloc!(rt_odd_100bytes_2align_realloc, 100- 1, 2);
-rt_realloc_excess_unused!(rt_odd_100bytes_2align_realloc_excess_unused, 100- 1, 2);
-rt_realloc_excess_used!(rt_odd_100bytes_2align_realloc_excess_used, 100- 1, 2);
+rt_calloc!(rt_odd_100bytes_2align_calloc, 100 - 1, 2);
+rt_mallocx!(rt_odd_100bytes_2align_mallocx, 100 - 1, 2);
+rt_mallocx_zeroed!(rt_odd_100bytes_2align_mallocx_zeroed, 100 - 1, 2);
+rt_mallocx_nallocx!(rt_odd_100bytes_2align_mallocx_nallocx, 100 - 1, 2);
+rt_alloc_layout_checked!(rt_odd_100bytes_2align_alloc_layout_checked, 100 - 1, 2);
+rt_alloc_layout_unchecked!(rt_odd_100bytes_2align_alloc_layout_unchecked, 100 - 1, 2);
+rt_alloc_excess_unused!(rt_odd_100bytes_2align_alloc_excess_unused, 100 - 1, 2);
+rt_alloc_excess_used!(rt_odd_100bytes_2align_alloc_excess_used, 100 - 1, 2);
+rt_realloc_naive!(rt_odd_100bytes_2align_realloc_naive, 100 - 1, 2);
+rt_realloc!(rt_odd_100bytes_2align_realloc, 100 - 1, 2);
+rt_realloc_excess_unused!(rt_odd_100bytes_2align_realloc_excess_unused, 100 - 1, 2);
+rt_realloc_excess_used!(rt_odd_100bytes_2align_realloc_excess_used, 100 - 1, 2);
 
-rt_calloc!(rt_odd_1000bytes_2align_calloc, 1000- 1, 2);
-rt_mallocx!(rt_odd_1000bytes_2align_mallocx, 1000- 1, 2);
-rt_mallocx_zeroed!(rt_odd_1000bytes_2align_mallocx_zeroed, 1000- 1, 2);
-rt_mallocx_nallocx!(rt_odd_1000bytes_2align_mallocx_nallocx, 1000- 1, 2);
-rt_alloc_layout_checked!(rt_odd_1000bytes_2align_alloc_layout_checked, 1000- 1, 2);
-rt_alloc_layout_unchecked!(rt_odd_1000bytes_2align_alloc_layout_unchecked, 1000- 1, 2);
-rt_alloc_excess_unused!(rt_odd_1000bytes_2align_alloc_excess_unused, 1000- 1, 2);
-rt_alloc_excess_used!(rt_odd_1000bytes_2align_alloc_excess_used, 1000- 1, 2);
-rt_realloc_naive!(rt_odd_1000bytes_2align_realloc_naive, 1000- 1, 2);
-rt_realloc!(rt_odd_1000bytes_2align_realloc, 1000- 1, 2);
-rt_realloc_excess_unused!(rt_odd_1000bytes_2align_realloc_excess_unused, 1000- 1, 2);
-rt_realloc_excess_used!(rt_odd_1000bytes_2align_realloc_excess_used, 1000- 1, 2);
+rt_calloc!(rt_odd_1000bytes_2align_calloc, 1000 - 1, 2);
+rt_mallocx!(rt_odd_1000bytes_2align_mallocx, 1000 - 1, 2);
+rt_mallocx_zeroed!(rt_odd_1000bytes_2align_mallocx_zeroed, 1000 - 1, 2);
+rt_mallocx_nallocx!(rt_odd_1000bytes_2align_mallocx_nallocx, 1000 - 1, 2);
+rt_alloc_layout_checked!(rt_odd_1000bytes_2align_alloc_layout_checked, 1000 - 1, 2);
+rt_alloc_layout_unchecked!(rt_odd_1000bytes_2align_alloc_layout_unchecked, 1000 - 1, 2);
+rt_alloc_excess_unused!(rt_odd_1000bytes_2align_alloc_excess_unused, 1000 - 1, 2);
+rt_alloc_excess_used!(rt_odd_1000bytes_2align_alloc_excess_used, 1000 - 1, 2);
+rt_realloc_naive!(rt_odd_1000bytes_2align_realloc_naive, 1000 - 1, 2);
+rt_realloc!(rt_odd_1000bytes_2align_realloc, 1000 - 1, 2);
+rt_realloc_excess_unused!(rt_odd_1000bytes_2align_realloc_excess_unused, 1000 - 1, 2);
+rt_realloc_excess_used!(rt_odd_1000bytes_2align_realloc_excess_used, 1000 - 1, 2);
 
-rt_calloc!(rt_odd_10000bytes_2align_calloc, 10000- 1, 2);
-rt_mallocx!(rt_odd_10000bytes_2align_mallocx, 10000- 1, 2);
-rt_mallocx_zeroed!(rt_odd_10000bytes_2align_mallocx_zeroed, 10000- 1, 2);
-rt_mallocx_nallocx!(rt_odd_10000bytes_2align_mallocx_nallocx, 10000- 1, 2);
-rt_alloc_layout_checked!(rt_odd_10000bytes_2align_alloc_layout_checked, 10000- 1, 2);
-rt_alloc_layout_unchecked!(rt_odd_10000bytes_2align_alloc_layout_unchecked, 10000- 1, 2);
-rt_alloc_excess_unused!(rt_odd_10000bytes_2align_alloc_excess_unused, 10000- 1, 2);
-rt_alloc_excess_used!(rt_odd_10000bytes_2align_alloc_excess_used, 10000- 1, 2);
-rt_realloc_naive!(rt_odd_10000bytes_2align_realloc_naive, 10000- 1, 2);
-rt_realloc!(rt_odd_10000bytes_2align_realloc, 10000- 1, 2);
-rt_realloc_excess_unused!(rt_odd_10000bytes_2align_realloc_excess_unused, 10000- 1, 2);
-rt_realloc_excess_used!(rt_odd_10000bytes_2align_realloc_excess_used, 10000- 1, 2);
+rt_calloc!(rt_odd_10000bytes_2align_calloc, 10000 - 1, 2);
+rt_mallocx!(rt_odd_10000bytes_2align_mallocx, 10000 - 1, 2);
+rt_mallocx_zeroed!(rt_odd_10000bytes_2align_mallocx_zeroed, 10000 - 1, 2);
+rt_mallocx_nallocx!(rt_odd_10000bytes_2align_mallocx_nallocx, 10000 - 1, 2);
+rt_alloc_layout_checked!(rt_odd_10000bytes_2align_alloc_layout_checked, 10000 - 1, 2);
+rt_alloc_layout_unchecked!(
+    rt_odd_10000bytes_2align_alloc_layout_unchecked,
+    10000 - 1,
+    2
+);
+rt_alloc_excess_unused!(rt_odd_10000bytes_2align_alloc_excess_unused, 10000 - 1, 2);
+rt_alloc_excess_used!(rt_odd_10000bytes_2align_alloc_excess_used, 10000 - 1, 2);
+rt_realloc_naive!(rt_odd_10000bytes_2align_realloc_naive, 10000 - 1, 2);
+rt_realloc!(rt_odd_10000bytes_2align_realloc, 10000 - 1, 2);
+rt_realloc_excess_unused!(rt_odd_10000bytes_2align_realloc_excess_unused, 10000 - 1, 2);
+rt_realloc_excess_used!(rt_odd_10000bytes_2align_realloc_excess_used, 10000 - 1, 2);
 
-rt_calloc!(rt_odd_100000bytes_2align_calloc, 100000- 1, 2);
-rt_mallocx!(rt_odd_100000bytes_2align_mallocx, 100000- 1, 2);
-rt_mallocx_zeroed!(rt_odd_100000bytes_2align_mallocx_zeroed, 100000- 1, 2);
-rt_mallocx_nallocx!(rt_odd_100000bytes_2align_mallocx_nallocx, 100000- 1, 2);
-rt_alloc_layout_checked!(rt_odd_100000bytes_2align_alloc_layout_checked, 100000- 1, 2);
-rt_alloc_layout_unchecked!(rt_odd_100000bytes_2align_alloc_layout_unchecked, 100000- 1, 2);
-rt_alloc_excess_unused!(rt_odd_100000bytes_2align_alloc_excess_unused, 100000- 1, 2);
-rt_alloc_excess_used!(rt_odd_100000bytes_2align_alloc_excess_used, 100000- 1, 2);
-rt_realloc_naive!(rt_odd_100000bytes_2align_realloc_naive, 100000- 1, 2);
-rt_realloc!(rt_odd_100000bytes_2align_realloc, 100000- 1, 2);
-rt_realloc_excess_unused!(rt_odd_100000bytes_2align_realloc_excess_unused, 100000- 1, 2);
-rt_realloc_excess_used!(rt_odd_100000bytes_2align_realloc_excess_used, 100000- 1, 2);
+rt_calloc!(rt_odd_100000bytes_2align_calloc, 100000 - 1, 2);
+rt_mallocx!(rt_odd_100000bytes_2align_mallocx, 100000 - 1, 2);
+rt_mallocx_zeroed!(rt_odd_100000bytes_2align_mallocx_zeroed, 100000 - 1, 2);
+rt_mallocx_nallocx!(rt_odd_100000bytes_2align_mallocx_nallocx, 100000 - 1, 2);
+rt_alloc_layout_checked!(
+    rt_odd_100000bytes_2align_alloc_layout_checked,
+    100000 - 1,
+    2
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_100000bytes_2align_alloc_layout_unchecked,
+    100000 - 1,
+    2
+);
+rt_alloc_excess_unused!(rt_odd_100000bytes_2align_alloc_excess_unused, 100000 - 1, 2);
+rt_alloc_excess_used!(rt_odd_100000bytes_2align_alloc_excess_used, 100000 - 1, 2);
+rt_realloc_naive!(rt_odd_100000bytes_2align_realloc_naive, 100000 - 1, 2);
+rt_realloc!(rt_odd_100000bytes_2align_realloc, 100000 - 1, 2);
+rt_realloc_excess_unused!(
+    rt_odd_100000bytes_2align_realloc_excess_unused,
+    100000 - 1,
+    2
+);
+rt_realloc_excess_used!(rt_odd_100000bytes_2align_realloc_excess_used, 100000 - 1, 2);
 
-rt_calloc!(rt_odd_1000000bytes_2align_calloc, 1000000- 1, 2);
-rt_mallocx!(rt_odd_1000000bytes_2align_mallocx, 1000000- 1, 2);
-rt_mallocx_zeroed!(rt_odd_1000000bytes_2align_mallocx_zeroed, 1000000- 1, 2);
-rt_mallocx_nallocx!(rt_odd_1000000bytes_2align_mallocx_nallocx, 1000000- 1, 2);
-rt_alloc_layout_checked!(rt_odd_1000000bytes_2align_alloc_layout_checked, 1000000- 1, 2);
-rt_alloc_layout_unchecked!(rt_odd_1000000bytes_2align_alloc_layout_unchecked, 1000000- 1, 2);
-rt_alloc_excess_unused!(rt_odd_1000000bytes_2align_alloc_excess_unused, 1000000- 1, 2);
-rt_alloc_excess_used!(rt_odd_1000000bytes_2align_alloc_excess_used, 1000000- 1, 2);
-rt_realloc_naive!(rt_odd_1000000bytes_2align_realloc_naive, 1000000- 1, 2);
-rt_realloc!(rt_odd_1000000bytes_2align_realloc, 1000000- 1, 2);
-rt_realloc_excess_unused!(rt_odd_1000000bytes_2align_realloc_excess_unused, 1000000- 1, 2);
-rt_realloc_excess_used!(rt_odd_1000000bytes_2align_realloc_excess_used, 1000000- 1, 2);
+rt_calloc!(rt_odd_1000000bytes_2align_calloc, 1000000 - 1, 2);
+rt_mallocx!(rt_odd_1000000bytes_2align_mallocx, 1000000 - 1, 2);
+rt_mallocx_zeroed!(rt_odd_1000000bytes_2align_mallocx_zeroed, 1000000 - 1, 2);
+rt_mallocx_nallocx!(rt_odd_1000000bytes_2align_mallocx_nallocx, 1000000 - 1, 2);
+rt_alloc_layout_checked!(
+    rt_odd_1000000bytes_2align_alloc_layout_checked,
+    1000000 - 1,
+    2
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000000bytes_2align_alloc_layout_unchecked,
+    1000000 - 1,
+    2
+);
+rt_alloc_excess_unused!(
+    rt_odd_1000000bytes_2align_alloc_excess_unused,
+    1000000 - 1,
+    2
+);
+rt_alloc_excess_used!(rt_odd_1000000bytes_2align_alloc_excess_used, 1000000 - 1, 2);
+rt_realloc_naive!(rt_odd_1000000bytes_2align_realloc_naive, 1000000 - 1, 2);
+rt_realloc!(rt_odd_1000000bytes_2align_realloc, 1000000 - 1, 2);
+rt_realloc_excess_unused!(
+    rt_odd_1000000bytes_2align_realloc_excess_unused,
+    1000000 - 1,
+    2
+);
+rt_realloc_excess_used!(
+    rt_odd_1000000bytes_2align_realloc_excess_used,
+    1000000 - 1,
+    2
+);
 
 // primes
 rt_calloc!(rt_primes_3bytes_2align_calloc, 3, 2);
@@ -1541,26 +1675,54 @@ rt_mallocx!(rt_primes_131071bytes_2align_mallocx, 131071, 2);
 rt_mallocx_zeroed!(rt_primes_131071bytes_2align_mallocx_zeroed, 131071, 2);
 rt_mallocx_nallocx!(rt_primes_131071bytes_2align_mallocx_nallocx, 131071, 2);
 rt_alloc_layout_checked!(rt_primes_131071bytes_2align_alloc_layout_checked, 131071, 2);
-rt_alloc_layout_unchecked!(rt_primes_131071bytes_2align_alloc_layout_unchecked, 131071, 2);
+rt_alloc_layout_unchecked!(
+    rt_primes_131071bytes_2align_alloc_layout_unchecked,
+    131071,
+    2
+);
 rt_alloc_excess_unused!(rt_primes_131071bytes_2align_alloc_excess_unused, 131071, 2);
 rt_alloc_excess_used!(rt_primes_131071bytes_2align_alloc_excess_used, 131071, 2);
 rt_realloc_naive!(rt_primes_131071bytes_2align_realloc_naive, 131071, 2);
 rt_realloc!(rt_primes_131071bytes_2align_realloc, 131071, 2);
-rt_realloc_excess_unused!(rt_primes_131071bytes_2align_realloc_excess_unused, 131071, 2);
+rt_realloc_excess_unused!(
+    rt_primes_131071bytes_2align_realloc_excess_unused,
+    131071,
+    2
+);
 rt_realloc_excess_used!(rt_primes_131071bytes_2align_realloc_excess_used, 131071, 2);
 
 rt_calloc!(rt_primes_4194301bytes_2align_calloc, 4194301, 2);
 rt_mallocx!(rt_primes_4194301bytes_2align_mallocx, 4194301, 2);
 rt_mallocx_zeroed!(rt_primes_4194301bytes_2align_mallocx_zeroed, 4194301, 2);
 rt_mallocx_nallocx!(rt_primes_4194301bytes_2align_mallocx_nallocx, 4194301, 2);
-rt_alloc_layout_checked!(rt_primes_4194301bytes_2align_alloc_layout_checked, 4194301, 2);
-rt_alloc_layout_unchecked!(rt_primes_4194301bytes_2align_alloc_layout_unchecked, 4194301, 2);
-rt_alloc_excess_unused!(rt_primes_4194301bytes_2align_alloc_excess_unused, 4194301, 2);
+rt_alloc_layout_checked!(
+    rt_primes_4194301bytes_2align_alloc_layout_checked,
+    4194301,
+    2
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_4194301bytes_2align_alloc_layout_unchecked,
+    4194301,
+    2
+);
+rt_alloc_excess_unused!(
+    rt_primes_4194301bytes_2align_alloc_excess_unused,
+    4194301,
+    2
+);
 rt_alloc_excess_used!(rt_primes_4194301bytes_2align_alloc_excess_used, 4194301, 2);
 rt_realloc_naive!(rt_primes_4194301bytes_2align_realloc_naive, 4194301, 2);
 rt_realloc!(rt_primes_4194301bytes_2align_realloc, 4194301, 2);
-rt_realloc_excess_unused!(rt_primes_4194301bytes_2align_realloc_excess_unused, 4194301, 2);
-rt_realloc_excess_used!(rt_primes_4194301bytes_2align_realloc_excess_used, 4194301, 2);
+rt_realloc_excess_unused!(
+    rt_primes_4194301bytes_2align_realloc_excess_unused,
+    4194301,
+    2
+);
+rt_realloc_excess_used!(
+    rt_primes_4194301bytes_2align_realloc_excess_used,
+    4194301,
+    2
+);
 
 // 4 bytes alignment
 
@@ -1804,12 +1966,20 @@ rt_mallocx!(rt_pow2_4194304bytes_4align_mallocx, 4194304, 4);
 rt_mallocx_zeroed!(rt_pow2_4194304bytes_4align_mallocx_zeroed, 4194304, 4);
 rt_mallocx_nallocx!(rt_pow2_4194304bytes_4align_mallocx_nallocx, 4194304, 4);
 rt_alloc_layout_checked!(rt_pow2_4194304bytes_4align_alloc_layout_checked, 4194304, 4);
-rt_alloc_layout_unchecked!(rt_pow2_4194304bytes_4align_alloc_layout_unchecked, 4194304, 4);
+rt_alloc_layout_unchecked!(
+    rt_pow2_4194304bytes_4align_alloc_layout_unchecked,
+    4194304,
+    4
+);
 rt_alloc_excess_unused!(rt_pow2_4194304bytes_4align_alloc_excess_unused, 4194304, 4);
 rt_alloc_excess_used!(rt_pow2_4194304bytes_4align_alloc_excess_used, 4194304, 4);
 rt_realloc_naive!(rt_pow2_4194304bytes_4align_realloc_naive, 4194304, 4);
 rt_realloc!(rt_pow2_4194304bytes_4align_realloc, 4194304, 4);
-rt_realloc_excess_unused!(rt_pow2_4194304bytes_4align_realloc_excess_unused, 4194304, 4);
+rt_realloc_excess_unused!(
+    rt_pow2_4194304bytes_4align_realloc_excess_unused,
+    4194304,
+    4
+);
 rt_realloc_excess_used!(rt_pow2_4194304bytes_4align_realloc_excess_used, 4194304, 4);
 
 // Even
@@ -1883,92 +2053,136 @@ rt_mallocx!(rt_even_1000000bytes_4align_mallocx, 1000000, 4);
 rt_mallocx_zeroed!(rt_even_1000000bytes_4align_mallocx_zeroed, 1000000, 4);
 rt_mallocx_nallocx!(rt_even_1000000bytes_4align_mallocx_nallocx, 1000000, 4);
 rt_alloc_layout_checked!(rt_even_1000000bytes_4align_alloc_layout_checked, 1000000, 4);
-rt_alloc_layout_unchecked!(rt_even_1000000bytes_4align_alloc_layout_unchecked, 1000000, 4);
+rt_alloc_layout_unchecked!(
+    rt_even_1000000bytes_4align_alloc_layout_unchecked,
+    1000000,
+    4
+);
 rt_alloc_excess_unused!(rt_even_1000000bytes_4align_alloc_excess_unused, 1000000, 4);
 rt_alloc_excess_used!(rt_even_1000000bytes_4align_alloc_excess_used, 1000000, 4);
 rt_realloc_naive!(rt_even_1000000bytes_4align_realloc_naive, 1000000, 4);
 rt_realloc!(rt_even_1000000bytes_4align_realloc, 1000000, 4);
-rt_realloc_excess_unused!(rt_even_1000000bytes_4align_realloc_excess_unused, 1000000, 4);
+rt_realloc_excess_unused!(
+    rt_even_1000000bytes_4align_realloc_excess_unused,
+    1000000,
+    4
+);
 rt_realloc_excess_used!(rt_even_1000000bytes_4align_realloc_excess_used, 1000000, 4);
 
 // Odd:
-rt_calloc!(rt_odd_10bytes_4align_calloc, 10- 1, 4);
-rt_mallocx!(rt_odd_10bytes_4align_mallocx, 10- 1, 4);
-rt_mallocx_zeroed!(rt_odd_10bytes_4align_mallocx_zeroed, 10- 1, 4);
-rt_mallocx_nallocx!(rt_odd_10bytes_4align_mallocx_nallocx, 10- 1, 4);
-rt_alloc_layout_checked!(rt_odd_10bytes_4align_alloc_layout_checked, 10- 1, 4);
-rt_alloc_layout_unchecked!(rt_odd_10bytes_4align_alloc_layout_unchecked, 10- 1, 4);
-rt_alloc_excess_unused!(rt_odd_10bytes_4align_alloc_excess_unused, 10- 1, 4);
-rt_alloc_excess_used!(rt_odd_10bytes_4align_alloc_excess_used, 10- 1, 4);
-rt_realloc_naive!(rt_odd_10bytes_4align_realloc_naive, 10- 1, 4);
-rt_realloc!(rt_odd_10bytes_4align_realloc, 10- 1, 4);
-rt_realloc_excess_unused!(rt_odd_10bytes_4align_realloc_excess_unused, 10- 1, 4);
-rt_realloc_excess_used!(rt_odd_10bytes_4align_realloc_excess_used, 10- 1, 4);
+rt_calloc!(rt_odd_10bytes_4align_calloc, 10 - 1, 4);
+rt_mallocx!(rt_odd_10bytes_4align_mallocx, 10 - 1, 4);
+rt_mallocx_zeroed!(rt_odd_10bytes_4align_mallocx_zeroed, 10 - 1, 4);
+rt_mallocx_nallocx!(rt_odd_10bytes_4align_mallocx_nallocx, 10 - 1, 4);
+rt_alloc_layout_checked!(rt_odd_10bytes_4align_alloc_layout_checked, 10 - 1, 4);
+rt_alloc_layout_unchecked!(rt_odd_10bytes_4align_alloc_layout_unchecked, 10 - 1, 4);
+rt_alloc_excess_unused!(rt_odd_10bytes_4align_alloc_excess_unused, 10 - 1, 4);
+rt_alloc_excess_used!(rt_odd_10bytes_4align_alloc_excess_used, 10 - 1, 4);
+rt_realloc_naive!(rt_odd_10bytes_4align_realloc_naive, 10 - 1, 4);
+rt_realloc!(rt_odd_10bytes_4align_realloc, 10 - 1, 4);
+rt_realloc_excess_unused!(rt_odd_10bytes_4align_realloc_excess_unused, 10 - 1, 4);
+rt_realloc_excess_used!(rt_odd_10bytes_4align_realloc_excess_used, 10 - 1, 4);
 
-rt_calloc!(rt_odd_100bytes_4align_calloc, 100- 1, 4);
-rt_mallocx!(rt_odd_100bytes_4align_mallocx, 100- 1, 4);
-rt_mallocx_zeroed!(rt_odd_100bytes_4align_mallocx_zeroed, 100- 1, 4);
-rt_mallocx_nallocx!(rt_odd_100bytes_4align_mallocx_nallocx, 100- 1, 4);
-rt_alloc_layout_checked!(rt_odd_100bytes_4align_alloc_layout_checked, 100- 1, 4);
-rt_alloc_layout_unchecked!(rt_odd_100bytes_4align_alloc_layout_unchecked, 100- 1, 4);
-rt_alloc_excess_unused!(rt_odd_100bytes_4align_alloc_excess_unused, 100- 1, 4);
-rt_alloc_excess_used!(rt_odd_100bytes_4align_alloc_excess_used, 100- 1, 4);
-rt_realloc_naive!(rt_odd_100bytes_4align_realloc_naive, 100- 1, 4);
-rt_realloc!(rt_odd_100bytes_4align_realloc, 100- 1, 4);
-rt_realloc_excess_unused!(rt_odd_100bytes_4align_realloc_excess_unused, 100- 1, 4);
-rt_realloc_excess_used!(rt_odd_100bytes_4align_realloc_excess_used, 100- 1, 4);
+rt_calloc!(rt_odd_100bytes_4align_calloc, 100 - 1, 4);
+rt_mallocx!(rt_odd_100bytes_4align_mallocx, 100 - 1, 4);
+rt_mallocx_zeroed!(rt_odd_100bytes_4align_mallocx_zeroed, 100 - 1, 4);
+rt_mallocx_nallocx!(rt_odd_100bytes_4align_mallocx_nallocx, 100 - 1, 4);
+rt_alloc_layout_checked!(rt_odd_100bytes_4align_alloc_layout_checked, 100 - 1, 4);
+rt_alloc_layout_unchecked!(rt_odd_100bytes_4align_alloc_layout_unchecked, 100 - 1, 4);
+rt_alloc_excess_unused!(rt_odd_100bytes_4align_alloc_excess_unused, 100 - 1, 4);
+rt_alloc_excess_used!(rt_odd_100bytes_4align_alloc_excess_used, 100 - 1, 4);
+rt_realloc_naive!(rt_odd_100bytes_4align_realloc_naive, 100 - 1, 4);
+rt_realloc!(rt_odd_100bytes_4align_realloc, 100 - 1, 4);
+rt_realloc_excess_unused!(rt_odd_100bytes_4align_realloc_excess_unused, 100 - 1, 4);
+rt_realloc_excess_used!(rt_odd_100bytes_4align_realloc_excess_used, 100 - 1, 4);
 
-rt_calloc!(rt_odd_1000bytes_4align_calloc, 1000- 1, 4);
-rt_mallocx!(rt_odd_1000bytes_4align_mallocx, 1000- 1, 4);
-rt_mallocx_zeroed!(rt_odd_1000bytes_4align_mallocx_zeroed, 1000- 1, 4);
-rt_mallocx_nallocx!(rt_odd_1000bytes_4align_mallocx_nallocx, 1000- 1, 4);
-rt_alloc_layout_checked!(rt_odd_1000bytes_4align_alloc_layout_checked, 1000- 1, 4);
-rt_alloc_layout_unchecked!(rt_odd_1000bytes_4align_alloc_layout_unchecked, 1000- 1, 4);
-rt_alloc_excess_unused!(rt_odd_1000bytes_4align_alloc_excess_unused, 1000- 1, 4);
-rt_alloc_excess_used!(rt_odd_1000bytes_4align_alloc_excess_used, 1000- 1, 4);
-rt_realloc_naive!(rt_odd_1000bytes_4align_realloc_naive, 1000- 1, 4);
-rt_realloc!(rt_odd_1000bytes_4align_realloc, 1000- 1, 4);
-rt_realloc_excess_unused!(rt_odd_1000bytes_4align_realloc_excess_unused, 1000- 1, 4);
-rt_realloc_excess_used!(rt_odd_1000bytes_4align_realloc_excess_used, 1000- 1, 4);
+rt_calloc!(rt_odd_1000bytes_4align_calloc, 1000 - 1, 4);
+rt_mallocx!(rt_odd_1000bytes_4align_mallocx, 1000 - 1, 4);
+rt_mallocx_zeroed!(rt_odd_1000bytes_4align_mallocx_zeroed, 1000 - 1, 4);
+rt_mallocx_nallocx!(rt_odd_1000bytes_4align_mallocx_nallocx, 1000 - 1, 4);
+rt_alloc_layout_checked!(rt_odd_1000bytes_4align_alloc_layout_checked, 1000 - 1, 4);
+rt_alloc_layout_unchecked!(rt_odd_1000bytes_4align_alloc_layout_unchecked, 1000 - 1, 4);
+rt_alloc_excess_unused!(rt_odd_1000bytes_4align_alloc_excess_unused, 1000 - 1, 4);
+rt_alloc_excess_used!(rt_odd_1000bytes_4align_alloc_excess_used, 1000 - 1, 4);
+rt_realloc_naive!(rt_odd_1000bytes_4align_realloc_naive, 1000 - 1, 4);
+rt_realloc!(rt_odd_1000bytes_4align_realloc, 1000 - 1, 4);
+rt_realloc_excess_unused!(rt_odd_1000bytes_4align_realloc_excess_unused, 1000 - 1, 4);
+rt_realloc_excess_used!(rt_odd_1000bytes_4align_realloc_excess_used, 1000 - 1, 4);
 
-rt_calloc!(rt_odd_10000bytes_4align_calloc, 10000- 1, 4);
-rt_mallocx!(rt_odd_10000bytes_4align_mallocx, 10000- 1, 4);
-rt_mallocx_zeroed!(rt_odd_10000bytes_4align_mallocx_zeroed, 10000- 1, 4);
-rt_mallocx_nallocx!(rt_odd_10000bytes_4align_mallocx_nallocx, 10000- 1, 4);
-rt_alloc_layout_checked!(rt_odd_10000bytes_4align_alloc_layout_checked, 10000- 1, 4);
-rt_alloc_layout_unchecked!(rt_odd_10000bytes_4align_alloc_layout_unchecked, 10000- 1, 4);
-rt_alloc_excess_unused!(rt_odd_10000bytes_4align_alloc_excess_unused, 10000- 1, 4);
-rt_alloc_excess_used!(rt_odd_10000bytes_4align_alloc_excess_used, 10000- 1, 4);
-rt_realloc_naive!(rt_odd_10000bytes_4align_realloc_naive, 10000- 1, 4);
-rt_realloc!(rt_odd_10000bytes_4align_realloc, 10000- 1, 4);
-rt_realloc_excess_unused!(rt_odd_10000bytes_4align_realloc_excess_unused, 10000- 1, 4);
-rt_realloc_excess_used!(rt_odd_10000bytes_4align_realloc_excess_used, 10000- 1, 4);
+rt_calloc!(rt_odd_10000bytes_4align_calloc, 10000 - 1, 4);
+rt_mallocx!(rt_odd_10000bytes_4align_mallocx, 10000 - 1, 4);
+rt_mallocx_zeroed!(rt_odd_10000bytes_4align_mallocx_zeroed, 10000 - 1, 4);
+rt_mallocx_nallocx!(rt_odd_10000bytes_4align_mallocx_nallocx, 10000 - 1, 4);
+rt_alloc_layout_checked!(rt_odd_10000bytes_4align_alloc_layout_checked, 10000 - 1, 4);
+rt_alloc_layout_unchecked!(
+    rt_odd_10000bytes_4align_alloc_layout_unchecked,
+    10000 - 1,
+    4
+);
+rt_alloc_excess_unused!(rt_odd_10000bytes_4align_alloc_excess_unused, 10000 - 1, 4);
+rt_alloc_excess_used!(rt_odd_10000bytes_4align_alloc_excess_used, 10000 - 1, 4);
+rt_realloc_naive!(rt_odd_10000bytes_4align_realloc_naive, 10000 - 1, 4);
+rt_realloc!(rt_odd_10000bytes_4align_realloc, 10000 - 1, 4);
+rt_realloc_excess_unused!(rt_odd_10000bytes_4align_realloc_excess_unused, 10000 - 1, 4);
+rt_realloc_excess_used!(rt_odd_10000bytes_4align_realloc_excess_used, 10000 - 1, 4);
 
-rt_calloc!(rt_odd_100000bytes_4align_calloc, 100000- 1, 4);
-rt_mallocx!(rt_odd_100000bytes_4align_mallocx, 100000- 1, 4);
-rt_mallocx_zeroed!(rt_odd_100000bytes_4align_mallocx_zeroed, 100000- 1, 4);
-rt_mallocx_nallocx!(rt_odd_100000bytes_4align_mallocx_nallocx, 100000- 1, 4);
-rt_alloc_layout_checked!(rt_odd_100000bytes_4align_alloc_layout_checked, 100000- 1, 4);
-rt_alloc_layout_unchecked!(rt_odd_100000bytes_4align_alloc_layout_unchecked, 100000- 1, 4);
-rt_alloc_excess_unused!(rt_odd_100000bytes_4align_alloc_excess_unused, 100000- 1, 4);
-rt_alloc_excess_used!(rt_odd_100000bytes_4align_alloc_excess_used, 100000- 1, 4);
-rt_realloc_naive!(rt_odd_100000bytes_4align_realloc_naive, 100000- 1, 4);
-rt_realloc!(rt_odd_100000bytes_4align_realloc, 100000- 1, 4);
-rt_realloc_excess_unused!(rt_odd_100000bytes_4align_realloc_excess_unused, 100000- 1, 4);
-rt_realloc_excess_used!(rt_odd_100000bytes_4align_realloc_excess_used, 100000- 1, 4);
+rt_calloc!(rt_odd_100000bytes_4align_calloc, 100000 - 1, 4);
+rt_mallocx!(rt_odd_100000bytes_4align_mallocx, 100000 - 1, 4);
+rt_mallocx_zeroed!(rt_odd_100000bytes_4align_mallocx_zeroed, 100000 - 1, 4);
+rt_mallocx_nallocx!(rt_odd_100000bytes_4align_mallocx_nallocx, 100000 - 1, 4);
+rt_alloc_layout_checked!(
+    rt_odd_100000bytes_4align_alloc_layout_checked,
+    100000 - 1,
+    4
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_100000bytes_4align_alloc_layout_unchecked,
+    100000 - 1,
+    4
+);
+rt_alloc_excess_unused!(rt_odd_100000bytes_4align_alloc_excess_unused, 100000 - 1, 4);
+rt_alloc_excess_used!(rt_odd_100000bytes_4align_alloc_excess_used, 100000 - 1, 4);
+rt_realloc_naive!(rt_odd_100000bytes_4align_realloc_naive, 100000 - 1, 4);
+rt_realloc!(rt_odd_100000bytes_4align_realloc, 100000 - 1, 4);
+rt_realloc_excess_unused!(
+    rt_odd_100000bytes_4align_realloc_excess_unused,
+    100000 - 1,
+    4
+);
+rt_realloc_excess_used!(rt_odd_100000bytes_4align_realloc_excess_used, 100000 - 1, 4);
 
-rt_calloc!(rt_odd_1000000bytes_4align_calloc, 1000000- 1, 4);
-rt_mallocx!(rt_odd_1000000bytes_4align_mallocx, 1000000- 1, 4);
-rt_mallocx_zeroed!(rt_odd_1000000bytes_4align_mallocx_zeroed, 1000000- 1, 4);
-rt_mallocx_nallocx!(rt_odd_1000000bytes_4align_mallocx_nallocx, 1000000- 1, 4);
-rt_alloc_layout_checked!(rt_odd_1000000bytes_4align_alloc_layout_checked, 1000000- 1, 4);
-rt_alloc_layout_unchecked!(rt_odd_1000000bytes_4align_alloc_layout_unchecked, 1000000- 1, 4);
-rt_alloc_excess_unused!(rt_odd_1000000bytes_4align_alloc_excess_unused, 1000000- 1, 4);
-rt_alloc_excess_used!(rt_odd_1000000bytes_4align_alloc_excess_used, 1000000- 1, 4);
-rt_realloc_naive!(rt_odd_1000000bytes_4align_realloc_naive, 1000000- 1, 4);
-rt_realloc!(rt_odd_1000000bytes_4align_realloc, 1000000- 1, 4);
-rt_realloc_excess_unused!(rt_odd_1000000bytes_4align_realloc_excess_unused, 1000000- 1, 4);
-rt_realloc_excess_used!(rt_odd_1000000bytes_4align_realloc_excess_used, 1000000- 1, 4);
+rt_calloc!(rt_odd_1000000bytes_4align_calloc, 1000000 - 1, 4);
+rt_mallocx!(rt_odd_1000000bytes_4align_mallocx, 1000000 - 1, 4);
+rt_mallocx_zeroed!(rt_odd_1000000bytes_4align_mallocx_zeroed, 1000000 - 1, 4);
+rt_mallocx_nallocx!(rt_odd_1000000bytes_4align_mallocx_nallocx, 1000000 - 1, 4);
+rt_alloc_layout_checked!(
+    rt_odd_1000000bytes_4align_alloc_layout_checked,
+    1000000 - 1,
+    4
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000000bytes_4align_alloc_layout_unchecked,
+    1000000 - 1,
+    4
+);
+rt_alloc_excess_unused!(
+    rt_odd_1000000bytes_4align_alloc_excess_unused,
+    1000000 - 1,
+    4
+);
+rt_alloc_excess_used!(rt_odd_1000000bytes_4align_alloc_excess_used, 1000000 - 1, 4);
+rt_realloc_naive!(rt_odd_1000000bytes_4align_realloc_naive, 1000000 - 1, 4);
+rt_realloc!(rt_odd_1000000bytes_4align_realloc, 1000000 - 1, 4);
+rt_realloc_excess_unused!(
+    rt_odd_1000000bytes_4align_realloc_excess_unused,
+    1000000 - 1,
+    4
+);
+rt_realloc_excess_used!(
+    rt_odd_1000000bytes_4align_realloc_excess_used,
+    1000000 - 1,
+    4
+);
 
 // primes
 rt_calloc!(rt_primes_3bytes_4align_calloc, 3, 4);
@@ -2197,26 +2411,54 @@ rt_mallocx!(rt_primes_131071bytes_4align_mallocx, 131071, 4);
 rt_mallocx_zeroed!(rt_primes_131071bytes_4align_mallocx_zeroed, 131071, 4);
 rt_mallocx_nallocx!(rt_primes_131071bytes_4align_mallocx_nallocx, 131071, 4);
 rt_alloc_layout_checked!(rt_primes_131071bytes_4align_alloc_layout_checked, 131071, 4);
-rt_alloc_layout_unchecked!(rt_primes_131071bytes_4align_alloc_layout_unchecked, 131071, 4);
+rt_alloc_layout_unchecked!(
+    rt_primes_131071bytes_4align_alloc_layout_unchecked,
+    131071,
+    4
+);
 rt_alloc_excess_unused!(rt_primes_131071bytes_4align_alloc_excess_unused, 131071, 4);
 rt_alloc_excess_used!(rt_primes_131071bytes_4align_alloc_excess_used, 131071, 4);
 rt_realloc_naive!(rt_primes_131071bytes_4align_realloc_naive, 131071, 4);
 rt_realloc!(rt_primes_131071bytes_4align_realloc, 131071, 4);
-rt_realloc_excess_unused!(rt_primes_131071bytes_4align_realloc_excess_unused, 131071, 4);
+rt_realloc_excess_unused!(
+    rt_primes_131071bytes_4align_realloc_excess_unused,
+    131071,
+    4
+);
 rt_realloc_excess_used!(rt_primes_131071bytes_4align_realloc_excess_used, 131071, 4);
 
 rt_calloc!(rt_primes_4194301bytes_4align_calloc, 4194301, 4);
 rt_mallocx!(rt_primes_4194301bytes_4align_mallocx, 4194301, 4);
 rt_mallocx_zeroed!(rt_primes_4194301bytes_4align_mallocx_zeroed, 4194301, 4);
 rt_mallocx_nallocx!(rt_primes_4194301bytes_4align_mallocx_nallocx, 4194301, 4);
-rt_alloc_layout_checked!(rt_primes_4194301bytes_4align_alloc_layout_checked, 4194301, 4);
-rt_alloc_layout_unchecked!(rt_primes_4194301bytes_4align_alloc_layout_unchecked, 4194301, 4);
-rt_alloc_excess_unused!(rt_primes_4194301bytes_4align_alloc_excess_unused, 4194301, 4);
+rt_alloc_layout_checked!(
+    rt_primes_4194301bytes_4align_alloc_layout_checked,
+    4194301,
+    4
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_4194301bytes_4align_alloc_layout_unchecked,
+    4194301,
+    4
+);
+rt_alloc_excess_unused!(
+    rt_primes_4194301bytes_4align_alloc_excess_unused,
+    4194301,
+    4
+);
 rt_alloc_excess_used!(rt_primes_4194301bytes_4align_alloc_excess_used, 4194301, 4);
 rt_realloc_naive!(rt_primes_4194301bytes_4align_realloc_naive, 4194301, 4);
 rt_realloc!(rt_primes_4194301bytes_4align_realloc, 4194301, 4);
-rt_realloc_excess_unused!(rt_primes_4194301bytes_4align_realloc_excess_unused, 4194301, 4);
-rt_realloc_excess_used!(rt_primes_4194301bytes_4align_realloc_excess_used, 4194301, 4);
+rt_realloc_excess_unused!(
+    rt_primes_4194301bytes_4align_realloc_excess_unused,
+    4194301,
+    4
+);
+rt_realloc_excess_used!(
+    rt_primes_4194301bytes_4align_realloc_excess_used,
+    4194301,
+    4
+);
 
 // 8 bytes alignment
 
@@ -2460,12 +2702,20 @@ rt_mallocx!(rt_pow2_4194304bytes_8align_mallocx, 4194304, 8);
 rt_mallocx_zeroed!(rt_pow2_4194304bytes_8align_mallocx_zeroed, 4194304, 8);
 rt_mallocx_nallocx!(rt_pow2_4194304bytes_8align_mallocx_nallocx, 4194304, 8);
 rt_alloc_layout_checked!(rt_pow2_4194304bytes_8align_alloc_layout_checked, 4194304, 8);
-rt_alloc_layout_unchecked!(rt_pow2_4194304bytes_8align_alloc_layout_unchecked, 4194304, 8);
+rt_alloc_layout_unchecked!(
+    rt_pow2_4194304bytes_8align_alloc_layout_unchecked,
+    4194304,
+    8
+);
 rt_alloc_excess_unused!(rt_pow2_4194304bytes_8align_alloc_excess_unused, 4194304, 8);
 rt_alloc_excess_used!(rt_pow2_4194304bytes_8align_alloc_excess_used, 4194304, 8);
 rt_realloc_naive!(rt_pow2_4194304bytes_8align_realloc_naive, 4194304, 8);
 rt_realloc!(rt_pow2_4194304bytes_8align_realloc, 4194304, 8);
-rt_realloc_excess_unused!(rt_pow2_4194304bytes_8align_realloc_excess_unused, 4194304, 8);
+rt_realloc_excess_unused!(
+    rt_pow2_4194304bytes_8align_realloc_excess_unused,
+    4194304,
+    8
+);
 rt_realloc_excess_used!(rt_pow2_4194304bytes_8align_realloc_excess_used, 4194304, 8);
 
 // Even
@@ -2539,92 +2789,136 @@ rt_mallocx!(rt_even_1000000bytes_8align_mallocx, 1000000, 8);
 rt_mallocx_zeroed!(rt_even_1000000bytes_8align_mallocx_zeroed, 1000000, 8);
 rt_mallocx_nallocx!(rt_even_1000000bytes_8align_mallocx_nallocx, 1000000, 8);
 rt_alloc_layout_checked!(rt_even_1000000bytes_8align_alloc_layout_checked, 1000000, 8);
-rt_alloc_layout_unchecked!(rt_even_1000000bytes_8align_alloc_layout_unchecked, 1000000, 8);
+rt_alloc_layout_unchecked!(
+    rt_even_1000000bytes_8align_alloc_layout_unchecked,
+    1000000,
+    8
+);
 rt_alloc_excess_unused!(rt_even_1000000bytes_8align_alloc_excess_unused, 1000000, 8);
 rt_alloc_excess_used!(rt_even_1000000bytes_8align_alloc_excess_used, 1000000, 8);
 rt_realloc_naive!(rt_even_1000000bytes_8align_realloc_naive, 1000000, 8);
 rt_realloc!(rt_even_1000000bytes_8align_realloc, 1000000, 8);
-rt_realloc_excess_unused!(rt_even_1000000bytes_8align_realloc_excess_unused, 1000000, 8);
+rt_realloc_excess_unused!(
+    rt_even_1000000bytes_8align_realloc_excess_unused,
+    1000000,
+    8
+);
 rt_realloc_excess_used!(rt_even_1000000bytes_8align_realloc_excess_used, 1000000, 8);
 
 // Odd:
-rt_calloc!(rt_odd_10bytes_8align_calloc, 10- 1, 8);
-rt_mallocx!(rt_odd_10bytes_8align_mallocx, 10- 1, 8);
-rt_mallocx_zeroed!(rt_odd_10bytes_8align_mallocx_zeroed, 10- 1, 8);
-rt_mallocx_nallocx!(rt_odd_10bytes_8align_mallocx_nallocx, 10- 1, 8);
-rt_alloc_layout_checked!(rt_odd_10bytes_8align_alloc_layout_checked, 10- 1, 8);
-rt_alloc_layout_unchecked!(rt_odd_10bytes_8align_alloc_layout_unchecked, 10- 1, 8);
-rt_alloc_excess_unused!(rt_odd_10bytes_8align_alloc_excess_unused, 10- 1, 8);
-rt_alloc_excess_used!(rt_odd_10bytes_8align_alloc_excess_used, 10- 1, 8);
-rt_realloc_naive!(rt_odd_10bytes_8align_realloc_naive, 10- 1, 8);
-rt_realloc!(rt_odd_10bytes_8align_realloc, 10- 1, 8);
-rt_realloc_excess_unused!(rt_odd_10bytes_8align_realloc_excess_unused, 10- 1, 8);
-rt_realloc_excess_used!(rt_odd_10bytes_8align_realloc_excess_used, 10- 1, 8);
+rt_calloc!(rt_odd_10bytes_8align_calloc, 10 - 1, 8);
+rt_mallocx!(rt_odd_10bytes_8align_mallocx, 10 - 1, 8);
+rt_mallocx_zeroed!(rt_odd_10bytes_8align_mallocx_zeroed, 10 - 1, 8);
+rt_mallocx_nallocx!(rt_odd_10bytes_8align_mallocx_nallocx, 10 - 1, 8);
+rt_alloc_layout_checked!(rt_odd_10bytes_8align_alloc_layout_checked, 10 - 1, 8);
+rt_alloc_layout_unchecked!(rt_odd_10bytes_8align_alloc_layout_unchecked, 10 - 1, 8);
+rt_alloc_excess_unused!(rt_odd_10bytes_8align_alloc_excess_unused, 10 - 1, 8);
+rt_alloc_excess_used!(rt_odd_10bytes_8align_alloc_excess_used, 10 - 1, 8);
+rt_realloc_naive!(rt_odd_10bytes_8align_realloc_naive, 10 - 1, 8);
+rt_realloc!(rt_odd_10bytes_8align_realloc, 10 - 1, 8);
+rt_realloc_excess_unused!(rt_odd_10bytes_8align_realloc_excess_unused, 10 - 1, 8);
+rt_realloc_excess_used!(rt_odd_10bytes_8align_realloc_excess_used, 10 - 1, 8);
 
-rt_calloc!(rt_odd_100bytes_8align_calloc, 100- 1, 8);
-rt_mallocx!(rt_odd_100bytes_8align_mallocx, 100- 1, 8);
-rt_mallocx_zeroed!(rt_odd_100bytes_8align_mallocx_zeroed, 100- 1, 8);
-rt_mallocx_nallocx!(rt_odd_100bytes_8align_mallocx_nallocx, 100- 1, 8);
-rt_alloc_layout_checked!(rt_odd_100bytes_8align_alloc_layout_checked, 100- 1, 8);
-rt_alloc_layout_unchecked!(rt_odd_100bytes_8align_alloc_layout_unchecked, 100- 1, 8);
-rt_alloc_excess_unused!(rt_odd_100bytes_8align_alloc_excess_unused, 100- 1, 8);
-rt_alloc_excess_used!(rt_odd_100bytes_8align_alloc_excess_used, 100- 1, 8);
-rt_realloc_naive!(rt_odd_100bytes_8align_realloc_naive, 100- 1, 8);
-rt_realloc!(rt_odd_100bytes_8align_realloc, 100- 1, 8);
-rt_realloc_excess_unused!(rt_odd_100bytes_8align_realloc_excess_unused, 100- 1, 8);
-rt_realloc_excess_used!(rt_odd_100bytes_8align_realloc_excess_used, 100- 1, 8);
+rt_calloc!(rt_odd_100bytes_8align_calloc, 100 - 1, 8);
+rt_mallocx!(rt_odd_100bytes_8align_mallocx, 100 - 1, 8);
+rt_mallocx_zeroed!(rt_odd_100bytes_8align_mallocx_zeroed, 100 - 1, 8);
+rt_mallocx_nallocx!(rt_odd_100bytes_8align_mallocx_nallocx, 100 - 1, 8);
+rt_alloc_layout_checked!(rt_odd_100bytes_8align_alloc_layout_checked, 100 - 1, 8);
+rt_alloc_layout_unchecked!(rt_odd_100bytes_8align_alloc_layout_unchecked, 100 - 1, 8);
+rt_alloc_excess_unused!(rt_odd_100bytes_8align_alloc_excess_unused, 100 - 1, 8);
+rt_alloc_excess_used!(rt_odd_100bytes_8align_alloc_excess_used, 100 - 1, 8);
+rt_realloc_naive!(rt_odd_100bytes_8align_realloc_naive, 100 - 1, 8);
+rt_realloc!(rt_odd_100bytes_8align_realloc, 100 - 1, 8);
+rt_realloc_excess_unused!(rt_odd_100bytes_8align_realloc_excess_unused, 100 - 1, 8);
+rt_realloc_excess_used!(rt_odd_100bytes_8align_realloc_excess_used, 100 - 1, 8);
 
-rt_calloc!(rt_odd_1000bytes_8align_calloc, 1000- 1, 8);
-rt_mallocx!(rt_odd_1000bytes_8align_mallocx, 1000- 1, 8);
-rt_mallocx_zeroed!(rt_odd_1000bytes_8align_mallocx_zeroed, 1000- 1, 8);
-rt_mallocx_nallocx!(rt_odd_1000bytes_8align_mallocx_nallocx, 1000- 1, 8);
-rt_alloc_layout_checked!(rt_odd_1000bytes_8align_alloc_layout_checked, 1000- 1, 8);
-rt_alloc_layout_unchecked!(rt_odd_1000bytes_8align_alloc_layout_unchecked, 1000- 1, 8);
-rt_alloc_excess_unused!(rt_odd_1000bytes_8align_alloc_excess_unused, 1000- 1, 8);
-rt_alloc_excess_used!(rt_odd_1000bytes_8align_alloc_excess_used, 1000- 1, 8);
-rt_realloc_naive!(rt_odd_1000bytes_8align_realloc_naive, 1000- 1, 8);
-rt_realloc!(rt_odd_1000bytes_8align_realloc, 1000- 1, 8);
-rt_realloc_excess_unused!(rt_odd_1000bytes_8align_realloc_excess_unused, 1000- 1, 8);
-rt_realloc_excess_used!(rt_odd_1000bytes_8align_realloc_excess_used, 1000- 1, 8);
+rt_calloc!(rt_odd_1000bytes_8align_calloc, 1000 - 1, 8);
+rt_mallocx!(rt_odd_1000bytes_8align_mallocx, 1000 - 1, 8);
+rt_mallocx_zeroed!(rt_odd_1000bytes_8align_mallocx_zeroed, 1000 - 1, 8);
+rt_mallocx_nallocx!(rt_odd_1000bytes_8align_mallocx_nallocx, 1000 - 1, 8);
+rt_alloc_layout_checked!(rt_odd_1000bytes_8align_alloc_layout_checked, 1000 - 1, 8);
+rt_alloc_layout_unchecked!(rt_odd_1000bytes_8align_alloc_layout_unchecked, 1000 - 1, 8);
+rt_alloc_excess_unused!(rt_odd_1000bytes_8align_alloc_excess_unused, 1000 - 1, 8);
+rt_alloc_excess_used!(rt_odd_1000bytes_8align_alloc_excess_used, 1000 - 1, 8);
+rt_realloc_naive!(rt_odd_1000bytes_8align_realloc_naive, 1000 - 1, 8);
+rt_realloc!(rt_odd_1000bytes_8align_realloc, 1000 - 1, 8);
+rt_realloc_excess_unused!(rt_odd_1000bytes_8align_realloc_excess_unused, 1000 - 1, 8);
+rt_realloc_excess_used!(rt_odd_1000bytes_8align_realloc_excess_used, 1000 - 1, 8);
 
-rt_calloc!(rt_odd_10000bytes_8align_calloc, 10000- 1, 8);
-rt_mallocx!(rt_odd_10000bytes_8align_mallocx, 10000- 1, 8);
-rt_mallocx_zeroed!(rt_odd_10000bytes_8align_mallocx_zeroed, 10000- 1, 8);
-rt_mallocx_nallocx!(rt_odd_10000bytes_8align_mallocx_nallocx, 10000- 1, 8);
-rt_alloc_layout_checked!(rt_odd_10000bytes_8align_alloc_layout_checked, 10000- 1, 8);
-rt_alloc_layout_unchecked!(rt_odd_10000bytes_8align_alloc_layout_unchecked, 10000- 1, 8);
-rt_alloc_excess_unused!(rt_odd_10000bytes_8align_alloc_excess_unused, 10000- 1, 8);
-rt_alloc_excess_used!(rt_odd_10000bytes_8align_alloc_excess_used, 10000- 1, 8);
-rt_realloc_naive!(rt_odd_10000bytes_8align_realloc_naive, 10000- 1, 8);
-rt_realloc!(rt_odd_10000bytes_8align_realloc, 10000- 1, 8);
-rt_realloc_excess_unused!(rt_odd_10000bytes_8align_realloc_excess_unused, 10000- 1, 8);
-rt_realloc_excess_used!(rt_odd_10000bytes_8align_realloc_excess_used, 10000- 1, 8);
+rt_calloc!(rt_odd_10000bytes_8align_calloc, 10000 - 1, 8);
+rt_mallocx!(rt_odd_10000bytes_8align_mallocx, 10000 - 1, 8);
+rt_mallocx_zeroed!(rt_odd_10000bytes_8align_mallocx_zeroed, 10000 - 1, 8);
+rt_mallocx_nallocx!(rt_odd_10000bytes_8align_mallocx_nallocx, 10000 - 1, 8);
+rt_alloc_layout_checked!(rt_odd_10000bytes_8align_alloc_layout_checked, 10000 - 1, 8);
+rt_alloc_layout_unchecked!(
+    rt_odd_10000bytes_8align_alloc_layout_unchecked,
+    10000 - 1,
+    8
+);
+rt_alloc_excess_unused!(rt_odd_10000bytes_8align_alloc_excess_unused, 10000 - 1, 8);
+rt_alloc_excess_used!(rt_odd_10000bytes_8align_alloc_excess_used, 10000 - 1, 8);
+rt_realloc_naive!(rt_odd_10000bytes_8align_realloc_naive, 10000 - 1, 8);
+rt_realloc!(rt_odd_10000bytes_8align_realloc, 10000 - 1, 8);
+rt_realloc_excess_unused!(rt_odd_10000bytes_8align_realloc_excess_unused, 10000 - 1, 8);
+rt_realloc_excess_used!(rt_odd_10000bytes_8align_realloc_excess_used, 10000 - 1, 8);
 
-rt_calloc!(rt_odd_100000bytes_8align_calloc, 100000- 1, 8);
-rt_mallocx!(rt_odd_100000bytes_8align_mallocx, 100000- 1, 8);
-rt_mallocx_zeroed!(rt_odd_100000bytes_8align_mallocx_zeroed, 100000- 1, 8);
-rt_mallocx_nallocx!(rt_odd_100000bytes_8align_mallocx_nallocx, 100000- 1, 8);
-rt_alloc_layout_checked!(rt_odd_100000bytes_8align_alloc_layout_checked, 100000- 1, 8);
-rt_alloc_layout_unchecked!(rt_odd_100000bytes_8align_alloc_layout_unchecked, 100000- 1, 8);
-rt_alloc_excess_unused!(rt_odd_100000bytes_8align_alloc_excess_unused, 100000- 1, 8);
-rt_alloc_excess_used!(rt_odd_100000bytes_8align_alloc_excess_used, 100000- 1, 8);
-rt_realloc_naive!(rt_odd_100000bytes_8align_realloc_naive, 100000- 1, 8);
-rt_realloc!(rt_odd_100000bytes_8align_realloc, 100000- 1, 8);
-rt_realloc_excess_unused!(rt_odd_100000bytes_8align_realloc_excess_unused, 100000- 1, 8);
-rt_realloc_excess_used!(rt_odd_100000bytes_8align_realloc_excess_used, 100000- 1, 8);
+rt_calloc!(rt_odd_100000bytes_8align_calloc, 100000 - 1, 8);
+rt_mallocx!(rt_odd_100000bytes_8align_mallocx, 100000 - 1, 8);
+rt_mallocx_zeroed!(rt_odd_100000bytes_8align_mallocx_zeroed, 100000 - 1, 8);
+rt_mallocx_nallocx!(rt_odd_100000bytes_8align_mallocx_nallocx, 100000 - 1, 8);
+rt_alloc_layout_checked!(
+    rt_odd_100000bytes_8align_alloc_layout_checked,
+    100000 - 1,
+    8
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_100000bytes_8align_alloc_layout_unchecked,
+    100000 - 1,
+    8
+);
+rt_alloc_excess_unused!(rt_odd_100000bytes_8align_alloc_excess_unused, 100000 - 1, 8);
+rt_alloc_excess_used!(rt_odd_100000bytes_8align_alloc_excess_used, 100000 - 1, 8);
+rt_realloc_naive!(rt_odd_100000bytes_8align_realloc_naive, 100000 - 1, 8);
+rt_realloc!(rt_odd_100000bytes_8align_realloc, 100000 - 1, 8);
+rt_realloc_excess_unused!(
+    rt_odd_100000bytes_8align_realloc_excess_unused,
+    100000 - 1,
+    8
+);
+rt_realloc_excess_used!(rt_odd_100000bytes_8align_realloc_excess_used, 100000 - 1, 8);
 
-rt_calloc!(rt_odd_1000000bytes_8align_calloc, 1000000- 1, 8);
-rt_mallocx!(rt_odd_1000000bytes_8align_mallocx, 1000000- 1, 8);
-rt_mallocx_zeroed!(rt_odd_1000000bytes_8align_mallocx_zeroed, 1000000- 1, 8);
-rt_mallocx_nallocx!(rt_odd_1000000bytes_8align_mallocx_nallocx, 1000000- 1, 8);
-rt_alloc_layout_checked!(rt_odd_1000000bytes_8align_alloc_layout_checked, 1000000- 1, 8);
-rt_alloc_layout_unchecked!(rt_odd_1000000bytes_8align_alloc_layout_unchecked, 1000000- 1, 8);
-rt_alloc_excess_unused!(rt_odd_1000000bytes_8align_alloc_excess_unused, 1000000- 1, 8);
-rt_alloc_excess_used!(rt_odd_1000000bytes_8align_alloc_excess_used, 1000000- 1, 8);
-rt_realloc_naive!(rt_odd_1000000bytes_8align_realloc_naive, 1000000- 1, 8);
-rt_realloc!(rt_odd_1000000bytes_8align_realloc, 1000000- 1, 8);
-rt_realloc_excess_unused!(rt_odd_1000000bytes_8align_realloc_excess_unused, 1000000- 1, 8);
-rt_realloc_excess_used!(rt_odd_1000000bytes_8align_realloc_excess_used, 1000000- 1, 8);
+rt_calloc!(rt_odd_1000000bytes_8align_calloc, 1000000 - 1, 8);
+rt_mallocx!(rt_odd_1000000bytes_8align_mallocx, 1000000 - 1, 8);
+rt_mallocx_zeroed!(rt_odd_1000000bytes_8align_mallocx_zeroed, 1000000 - 1, 8);
+rt_mallocx_nallocx!(rt_odd_1000000bytes_8align_mallocx_nallocx, 1000000 - 1, 8);
+rt_alloc_layout_checked!(
+    rt_odd_1000000bytes_8align_alloc_layout_checked,
+    1000000 - 1,
+    8
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000000bytes_8align_alloc_layout_unchecked,
+    1000000 - 1,
+    8
+);
+rt_alloc_excess_unused!(
+    rt_odd_1000000bytes_8align_alloc_excess_unused,
+    1000000 - 1,
+    8
+);
+rt_alloc_excess_used!(rt_odd_1000000bytes_8align_alloc_excess_used, 1000000 - 1, 8);
+rt_realloc_naive!(rt_odd_1000000bytes_8align_realloc_naive, 1000000 - 1, 8);
+rt_realloc!(rt_odd_1000000bytes_8align_realloc, 1000000 - 1, 8);
+rt_realloc_excess_unused!(
+    rt_odd_1000000bytes_8align_realloc_excess_unused,
+    1000000 - 1,
+    8
+);
+rt_realloc_excess_used!(
+    rt_odd_1000000bytes_8align_realloc_excess_used,
+    1000000 - 1,
+    8
+);
 
 // primes
 rt_calloc!(rt_primes_3bytes_8align_calloc, 3, 8);
@@ -2853,26 +3147,54 @@ rt_mallocx!(rt_primes_131071bytes_8align_mallocx, 131071, 8);
 rt_mallocx_zeroed!(rt_primes_131071bytes_8align_mallocx_zeroed, 131071, 8);
 rt_mallocx_nallocx!(rt_primes_131071bytes_8align_mallocx_nallocx, 131071, 8);
 rt_alloc_layout_checked!(rt_primes_131071bytes_8align_alloc_layout_checked, 131071, 8);
-rt_alloc_layout_unchecked!(rt_primes_131071bytes_8align_alloc_layout_unchecked, 131071, 8);
+rt_alloc_layout_unchecked!(
+    rt_primes_131071bytes_8align_alloc_layout_unchecked,
+    131071,
+    8
+);
 rt_alloc_excess_unused!(rt_primes_131071bytes_8align_alloc_excess_unused, 131071, 8);
 rt_alloc_excess_used!(rt_primes_131071bytes_8align_alloc_excess_used, 131071, 8);
 rt_realloc_naive!(rt_primes_131071bytes_8align_realloc_naive, 131071, 8);
 rt_realloc!(rt_primes_131071bytes_8align_realloc, 131071, 8);
-rt_realloc_excess_unused!(rt_primes_131071bytes_8align_realloc_excess_unused, 131071, 8);
+rt_realloc_excess_unused!(
+    rt_primes_131071bytes_8align_realloc_excess_unused,
+    131071,
+    8
+);
 rt_realloc_excess_used!(rt_primes_131071bytes_8align_realloc_excess_used, 131071, 8);
 
 rt_calloc!(rt_primes_4194301bytes_8align_calloc, 4194301, 8);
 rt_mallocx!(rt_primes_4194301bytes_8align_mallocx, 4194301, 8);
 rt_mallocx_zeroed!(rt_primes_4194301bytes_8align_mallocx_zeroed, 4194301, 8);
 rt_mallocx_nallocx!(rt_primes_4194301bytes_8align_mallocx_nallocx, 4194301, 8);
-rt_alloc_layout_checked!(rt_primes_4194301bytes_8align_alloc_layout_checked, 4194301, 8);
-rt_alloc_layout_unchecked!(rt_primes_4194301bytes_8align_alloc_layout_unchecked, 4194301, 8);
-rt_alloc_excess_unused!(rt_primes_4194301bytes_8align_alloc_excess_unused, 4194301, 8);
+rt_alloc_layout_checked!(
+    rt_primes_4194301bytes_8align_alloc_layout_checked,
+    4194301,
+    8
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_4194301bytes_8align_alloc_layout_unchecked,
+    4194301,
+    8
+);
+rt_alloc_excess_unused!(
+    rt_primes_4194301bytes_8align_alloc_excess_unused,
+    4194301,
+    8
+);
 rt_alloc_excess_used!(rt_primes_4194301bytes_8align_alloc_excess_used, 4194301, 8);
 rt_realloc_naive!(rt_primes_4194301bytes_8align_realloc_naive, 4194301, 8);
 rt_realloc!(rt_primes_4194301bytes_8align_realloc, 4194301, 8);
-rt_realloc_excess_unused!(rt_primes_4194301bytes_8align_realloc_excess_unused, 4194301, 8);
-rt_realloc_excess_used!(rt_primes_4194301bytes_8align_realloc_excess_used, 4194301, 8);
+rt_realloc_excess_unused!(
+    rt_primes_4194301bytes_8align_realloc_excess_unused,
+    4194301,
+    8
+);
+rt_realloc_excess_used!(
+    rt_primes_4194301bytes_8align_realloc_excess_used,
+    4194301,
+    8
+);
 
 // 16 bytes alignment
 
@@ -3103,26 +3425,54 @@ rt_mallocx!(rt_pow2_131072bytes_16align_mallocx, 131072, 16);
 rt_mallocx_zeroed!(rt_pow2_131072bytes_16align_mallocx_zeroed, 131072, 16);
 rt_mallocx_nallocx!(rt_pow2_131072bytes_16align_mallocx_nallocx, 131072, 16);
 rt_alloc_layout_checked!(rt_pow2_131072bytes_16align_alloc_layout_checked, 131072, 16);
-rt_alloc_layout_unchecked!(rt_pow2_131072bytes_16align_alloc_layout_unchecked, 131072, 16);
+rt_alloc_layout_unchecked!(
+    rt_pow2_131072bytes_16align_alloc_layout_unchecked,
+    131072,
+    16
+);
 rt_alloc_excess_unused!(rt_pow2_131072bytes_16align_alloc_excess_unused, 131072, 16);
 rt_alloc_excess_used!(rt_pow2_131072bytes_16align_alloc_excess_used, 131072, 16);
 rt_realloc_naive!(rt_pow2_131072bytes_16align_realloc_naive, 131072, 16);
 rt_realloc!(rt_pow2_131072bytes_16align_realloc, 131072, 16);
-rt_realloc_excess_unused!(rt_pow2_131072bytes_16align_realloc_excess_unused, 131072, 16);
+rt_realloc_excess_unused!(
+    rt_pow2_131072bytes_16align_realloc_excess_unused,
+    131072,
+    16
+);
 rt_realloc_excess_used!(rt_pow2_131072bytes_16align_realloc_excess_used, 131072, 16);
 
 rt_calloc!(rt_pow2_4194304bytes_16align_calloc, 4194304, 16);
 rt_mallocx!(rt_pow2_4194304bytes_16align_mallocx, 4194304, 16);
 rt_mallocx_zeroed!(rt_pow2_4194304bytes_16align_mallocx_zeroed, 4194304, 16);
 rt_mallocx_nallocx!(rt_pow2_4194304bytes_16align_mallocx_nallocx, 4194304, 16);
-rt_alloc_layout_checked!(rt_pow2_4194304bytes_16align_alloc_layout_checked, 4194304, 16);
-rt_alloc_layout_unchecked!(rt_pow2_4194304bytes_16align_alloc_layout_unchecked, 4194304, 16);
-rt_alloc_excess_unused!(rt_pow2_4194304bytes_16align_alloc_excess_unused, 4194304, 16);
+rt_alloc_layout_checked!(
+    rt_pow2_4194304bytes_16align_alloc_layout_checked,
+    4194304,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_pow2_4194304bytes_16align_alloc_layout_unchecked,
+    4194304,
+    16
+);
+rt_alloc_excess_unused!(
+    rt_pow2_4194304bytes_16align_alloc_excess_unused,
+    4194304,
+    16
+);
 rt_alloc_excess_used!(rt_pow2_4194304bytes_16align_alloc_excess_used, 4194304, 16);
 rt_realloc_naive!(rt_pow2_4194304bytes_16align_realloc_naive, 4194304, 16);
 rt_realloc!(rt_pow2_4194304bytes_16align_realloc, 4194304, 16);
-rt_realloc_excess_unused!(rt_pow2_4194304bytes_16align_realloc_excess_unused, 4194304, 16);
-rt_realloc_excess_used!(rt_pow2_4194304bytes_16align_realloc_excess_used, 4194304, 16);
+rt_realloc_excess_unused!(
+    rt_pow2_4194304bytes_16align_realloc_excess_unused,
+    4194304,
+    16
+);
+rt_realloc_excess_used!(
+    rt_pow2_4194304bytes_16align_realloc_excess_used,
+    4194304,
+    16
+);
 
 // Even
 rt_calloc!(rt_even_10bytes_16align_calloc, 10, 16);
@@ -3182,105 +3532,193 @@ rt_mallocx!(rt_even_100000bytes_16align_mallocx, 100000, 16);
 rt_mallocx_zeroed!(rt_even_100000bytes_16align_mallocx_zeroed, 100000, 16);
 rt_mallocx_nallocx!(rt_even_100000bytes_16align_mallocx_nallocx, 100000, 16);
 rt_alloc_layout_checked!(rt_even_100000bytes_16align_alloc_layout_checked, 100000, 16);
-rt_alloc_layout_unchecked!(rt_even_100000bytes_16align_alloc_layout_unchecked, 100000, 16);
+rt_alloc_layout_unchecked!(
+    rt_even_100000bytes_16align_alloc_layout_unchecked,
+    100000,
+    16
+);
 rt_alloc_excess_unused!(rt_even_100000bytes_16align_alloc_excess_unused, 100000, 16);
 rt_alloc_excess_used!(rt_even_100000bytes_16align_alloc_excess_used, 100000, 16);
 rt_realloc_naive!(rt_even_100000bytes_16align_realloc_naive, 100000, 16);
 rt_realloc!(rt_even_100000bytes_16align_realloc, 100000, 16);
-rt_realloc_excess_unused!(rt_even_100000bytes_16align_realloc_excess_unused, 100000, 16);
+rt_realloc_excess_unused!(
+    rt_even_100000bytes_16align_realloc_excess_unused,
+    100000,
+    16
+);
 rt_realloc_excess_used!(rt_even_100000bytes_16align_realloc_excess_used, 100000, 16);
 
 rt_calloc!(rt_even_1000000bytes_16align_calloc, 1000000, 16);
 rt_mallocx!(rt_even_1000000bytes_16align_mallocx, 1000000, 16);
 rt_mallocx_zeroed!(rt_even_1000000bytes_16align_mallocx_zeroed, 1000000, 16);
 rt_mallocx_nallocx!(rt_even_1000000bytes_16align_mallocx_nallocx, 1000000, 16);
-rt_alloc_layout_checked!(rt_even_1000000bytes_16align_alloc_layout_checked, 1000000, 16);
-rt_alloc_layout_unchecked!(rt_even_1000000bytes_16align_alloc_layout_unchecked, 1000000, 16);
-rt_alloc_excess_unused!(rt_even_1000000bytes_16align_alloc_excess_unused, 1000000, 16);
+rt_alloc_layout_checked!(
+    rt_even_1000000bytes_16align_alloc_layout_checked,
+    1000000,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_even_1000000bytes_16align_alloc_layout_unchecked,
+    1000000,
+    16
+);
+rt_alloc_excess_unused!(
+    rt_even_1000000bytes_16align_alloc_excess_unused,
+    1000000,
+    16
+);
 rt_alloc_excess_used!(rt_even_1000000bytes_16align_alloc_excess_used, 1000000, 16);
 rt_realloc_naive!(rt_even_1000000bytes_16align_realloc_naive, 1000000, 16);
 rt_realloc!(rt_even_1000000bytes_16align_realloc, 1000000, 16);
-rt_realloc_excess_unused!(rt_even_1000000bytes_16align_realloc_excess_unused, 1000000, 16);
-rt_realloc_excess_used!(rt_even_1000000bytes_16align_realloc_excess_used, 1000000, 16);
+rt_realloc_excess_unused!(
+    rt_even_1000000bytes_16align_realloc_excess_unused,
+    1000000,
+    16
+);
+rt_realloc_excess_used!(
+    rt_even_1000000bytes_16align_realloc_excess_used,
+    1000000,
+    16
+);
 
 // Odd:
-rt_calloc!(rt_odd_10bytes_16align_calloc, 10- 1, 16);
-rt_mallocx!(rt_odd_10bytes_16align_mallocx, 10- 1, 16);
-rt_mallocx_zeroed!(rt_odd_10bytes_16align_mallocx_zeroed, 10- 1, 16);
-rt_mallocx_nallocx!(rt_odd_10bytes_16align_mallocx_nallocx, 10- 1, 16);
-rt_alloc_layout_checked!(rt_odd_10bytes_16align_alloc_layout_checked, 10- 1, 16);
-rt_alloc_layout_unchecked!(rt_odd_10bytes_16align_alloc_layout_unchecked, 10- 1, 16);
-rt_alloc_excess_unused!(rt_odd_10bytes_16align_alloc_excess_unused, 10- 1, 16);
-rt_alloc_excess_used!(rt_odd_10bytes_16align_alloc_excess_used, 10- 1, 16);
-rt_realloc_naive!(rt_odd_10bytes_16align_realloc_naive, 10- 1, 16);
-rt_realloc!(rt_odd_10bytes_16align_realloc, 10- 1, 16);
-rt_realloc_excess_unused!(rt_odd_10bytes_16align_realloc_excess_unused, 10- 1, 16);
-rt_realloc_excess_used!(rt_odd_10bytes_16align_realloc_excess_used, 10- 1, 16);
+rt_calloc!(rt_odd_10bytes_16align_calloc, 10 - 1, 16);
+rt_mallocx!(rt_odd_10bytes_16align_mallocx, 10 - 1, 16);
+rt_mallocx_zeroed!(rt_odd_10bytes_16align_mallocx_zeroed, 10 - 1, 16);
+rt_mallocx_nallocx!(rt_odd_10bytes_16align_mallocx_nallocx, 10 - 1, 16);
+rt_alloc_layout_checked!(rt_odd_10bytes_16align_alloc_layout_checked, 10 - 1, 16);
+rt_alloc_layout_unchecked!(rt_odd_10bytes_16align_alloc_layout_unchecked, 10 - 1, 16);
+rt_alloc_excess_unused!(rt_odd_10bytes_16align_alloc_excess_unused, 10 - 1, 16);
+rt_alloc_excess_used!(rt_odd_10bytes_16align_alloc_excess_used, 10 - 1, 16);
+rt_realloc_naive!(rt_odd_10bytes_16align_realloc_naive, 10 - 1, 16);
+rt_realloc!(rt_odd_10bytes_16align_realloc, 10 - 1, 16);
+rt_realloc_excess_unused!(rt_odd_10bytes_16align_realloc_excess_unused, 10 - 1, 16);
+rt_realloc_excess_used!(rt_odd_10bytes_16align_realloc_excess_used, 10 - 1, 16);
 
-rt_calloc!(rt_odd_100bytes_16align_calloc, 100- 1, 16);
-rt_mallocx!(rt_odd_100bytes_16align_mallocx, 100- 1, 16);
-rt_mallocx_zeroed!(rt_odd_100bytes_16align_mallocx_zeroed, 100- 1, 16);
-rt_mallocx_nallocx!(rt_odd_100bytes_16align_mallocx_nallocx, 100- 1, 16);
-rt_alloc_layout_checked!(rt_odd_100bytes_16align_alloc_layout_checked, 100- 1, 16);
-rt_alloc_layout_unchecked!(rt_odd_100bytes_16align_alloc_layout_unchecked, 100- 1, 16);
-rt_alloc_excess_unused!(rt_odd_100bytes_16align_alloc_excess_unused, 100- 1, 16);
-rt_alloc_excess_used!(rt_odd_100bytes_16align_alloc_excess_used, 100- 1, 16);
-rt_realloc_naive!(rt_odd_100bytes_16align_realloc_naive, 100- 1, 16);
-rt_realloc!(rt_odd_100bytes_16align_realloc, 100- 1, 16);
-rt_realloc_excess_unused!(rt_odd_100bytes_16align_realloc_excess_unused, 100- 1, 16);
-rt_realloc_excess_used!(rt_odd_100bytes_16align_realloc_excess_used, 100- 1, 16);
+rt_calloc!(rt_odd_100bytes_16align_calloc, 100 - 1, 16);
+rt_mallocx!(rt_odd_100bytes_16align_mallocx, 100 - 1, 16);
+rt_mallocx_zeroed!(rt_odd_100bytes_16align_mallocx_zeroed, 100 - 1, 16);
+rt_mallocx_nallocx!(rt_odd_100bytes_16align_mallocx_nallocx, 100 - 1, 16);
+rt_alloc_layout_checked!(rt_odd_100bytes_16align_alloc_layout_checked, 100 - 1, 16);
+rt_alloc_layout_unchecked!(rt_odd_100bytes_16align_alloc_layout_unchecked, 100 - 1, 16);
+rt_alloc_excess_unused!(rt_odd_100bytes_16align_alloc_excess_unused, 100 - 1, 16);
+rt_alloc_excess_used!(rt_odd_100bytes_16align_alloc_excess_used, 100 - 1, 16);
+rt_realloc_naive!(rt_odd_100bytes_16align_realloc_naive, 100 - 1, 16);
+rt_realloc!(rt_odd_100bytes_16align_realloc, 100 - 1, 16);
+rt_realloc_excess_unused!(rt_odd_100bytes_16align_realloc_excess_unused, 100 - 1, 16);
+rt_realloc_excess_used!(rt_odd_100bytes_16align_realloc_excess_used, 100 - 1, 16);
 
-rt_calloc!(rt_odd_1000bytes_16align_calloc, 1000- 1, 16);
-rt_mallocx!(rt_odd_1000bytes_16align_mallocx, 1000- 1, 16);
-rt_mallocx_zeroed!(rt_odd_1000bytes_16align_mallocx_zeroed, 1000- 1, 16);
-rt_mallocx_nallocx!(rt_odd_1000bytes_16align_mallocx_nallocx, 1000- 1, 16);
-rt_alloc_layout_checked!(rt_odd_1000bytes_16align_alloc_layout_checked, 1000- 1, 16);
-rt_alloc_layout_unchecked!(rt_odd_1000bytes_16align_alloc_layout_unchecked, 1000- 1, 16);
-rt_alloc_excess_unused!(rt_odd_1000bytes_16align_alloc_excess_unused, 1000- 1, 16);
-rt_alloc_excess_used!(rt_odd_1000bytes_16align_alloc_excess_used, 1000- 1, 16);
-rt_realloc_naive!(rt_odd_1000bytes_16align_realloc_naive, 1000- 1, 16);
-rt_realloc!(rt_odd_1000bytes_16align_realloc, 1000- 1, 16);
-rt_realloc_excess_unused!(rt_odd_1000bytes_16align_realloc_excess_unused, 1000- 1, 16);
-rt_realloc_excess_used!(rt_odd_1000bytes_16align_realloc_excess_used, 1000- 1, 16);
+rt_calloc!(rt_odd_1000bytes_16align_calloc, 1000 - 1, 16);
+rt_mallocx!(rt_odd_1000bytes_16align_mallocx, 1000 - 1, 16);
+rt_mallocx_zeroed!(rt_odd_1000bytes_16align_mallocx_zeroed, 1000 - 1, 16);
+rt_mallocx_nallocx!(rt_odd_1000bytes_16align_mallocx_nallocx, 1000 - 1, 16);
+rt_alloc_layout_checked!(rt_odd_1000bytes_16align_alloc_layout_checked, 1000 - 1, 16);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000bytes_16align_alloc_layout_unchecked,
+    1000 - 1,
+    16
+);
+rt_alloc_excess_unused!(rt_odd_1000bytes_16align_alloc_excess_unused, 1000 - 1, 16);
+rt_alloc_excess_used!(rt_odd_1000bytes_16align_alloc_excess_used, 1000 - 1, 16);
+rt_realloc_naive!(rt_odd_1000bytes_16align_realloc_naive, 1000 - 1, 16);
+rt_realloc!(rt_odd_1000bytes_16align_realloc, 1000 - 1, 16);
+rt_realloc_excess_unused!(rt_odd_1000bytes_16align_realloc_excess_unused, 1000 - 1, 16);
+rt_realloc_excess_used!(rt_odd_1000bytes_16align_realloc_excess_used, 1000 - 1, 16);
 
-rt_calloc!(rt_odd_10000bytes_16align_calloc, 10000- 1, 16);
-rt_mallocx!(rt_odd_10000bytes_16align_mallocx, 10000- 1, 16);
-rt_mallocx_zeroed!(rt_odd_10000bytes_16align_mallocx_zeroed, 10000- 1, 16);
-rt_mallocx_nallocx!(rt_odd_10000bytes_16align_mallocx_nallocx, 10000- 1, 16);
-rt_alloc_layout_checked!(rt_odd_10000bytes_16align_alloc_layout_checked, 10000- 1, 16);
-rt_alloc_layout_unchecked!(rt_odd_10000bytes_16align_alloc_layout_unchecked, 10000- 1, 16);
-rt_alloc_excess_unused!(rt_odd_10000bytes_16align_alloc_excess_unused, 10000- 1, 16);
-rt_alloc_excess_used!(rt_odd_10000bytes_16align_alloc_excess_used, 10000- 1, 16);
-rt_realloc_naive!(rt_odd_10000bytes_16align_realloc_naive, 10000- 1, 16);
-rt_realloc!(rt_odd_10000bytes_16align_realloc, 10000- 1, 16);
-rt_realloc_excess_unused!(rt_odd_10000bytes_16align_realloc_excess_unused, 10000- 1, 16);
-rt_realloc_excess_used!(rt_odd_10000bytes_16align_realloc_excess_used, 10000- 1, 16);
+rt_calloc!(rt_odd_10000bytes_16align_calloc, 10000 - 1, 16);
+rt_mallocx!(rt_odd_10000bytes_16align_mallocx, 10000 - 1, 16);
+rt_mallocx_zeroed!(rt_odd_10000bytes_16align_mallocx_zeroed, 10000 - 1, 16);
+rt_mallocx_nallocx!(rt_odd_10000bytes_16align_mallocx_nallocx, 10000 - 1, 16);
+rt_alloc_layout_checked!(
+    rt_odd_10000bytes_16align_alloc_layout_checked,
+    10000 - 1,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_10000bytes_16align_alloc_layout_unchecked,
+    10000 - 1,
+    16
+);
+rt_alloc_excess_unused!(rt_odd_10000bytes_16align_alloc_excess_unused, 10000 - 1, 16);
+rt_alloc_excess_used!(rt_odd_10000bytes_16align_alloc_excess_used, 10000 - 1, 16);
+rt_realloc_naive!(rt_odd_10000bytes_16align_realloc_naive, 10000 - 1, 16);
+rt_realloc!(rt_odd_10000bytes_16align_realloc, 10000 - 1, 16);
+rt_realloc_excess_unused!(
+    rt_odd_10000bytes_16align_realloc_excess_unused,
+    10000 - 1,
+    16
+);
+rt_realloc_excess_used!(rt_odd_10000bytes_16align_realloc_excess_used, 10000 - 1, 16);
 
-rt_calloc!(rt_odd_100000bytes_16align_calloc, 100000- 1, 16);
-rt_mallocx!(rt_odd_100000bytes_16align_mallocx, 100000- 1, 16);
-rt_mallocx_zeroed!(rt_odd_100000bytes_16align_mallocx_zeroed, 100000- 1, 16);
-rt_mallocx_nallocx!(rt_odd_100000bytes_16align_mallocx_nallocx, 100000- 1, 16);
-rt_alloc_layout_checked!(rt_odd_100000bytes_16align_alloc_layout_checked, 100000- 1, 16);
-rt_alloc_layout_unchecked!(rt_odd_100000bytes_16align_alloc_layout_unchecked, 100000- 1, 16);
-rt_alloc_excess_unused!(rt_odd_100000bytes_16align_alloc_excess_unused, 100000- 1, 16);
-rt_alloc_excess_used!(rt_odd_100000bytes_16align_alloc_excess_used, 100000- 1, 16);
-rt_realloc_naive!(rt_odd_100000bytes_16align_realloc_naive, 100000- 1, 16);
-rt_realloc!(rt_odd_100000bytes_16align_realloc, 100000- 1, 16);
-rt_realloc_excess_unused!(rt_odd_100000bytes_16align_realloc_excess_unused, 100000- 1, 16);
-rt_realloc_excess_used!(rt_odd_100000bytes_16align_realloc_excess_used, 100000- 1, 16);
+rt_calloc!(rt_odd_100000bytes_16align_calloc, 100000 - 1, 16);
+rt_mallocx!(rt_odd_100000bytes_16align_mallocx, 100000 - 1, 16);
+rt_mallocx_zeroed!(rt_odd_100000bytes_16align_mallocx_zeroed, 100000 - 1, 16);
+rt_mallocx_nallocx!(rt_odd_100000bytes_16align_mallocx_nallocx, 100000 - 1, 16);
+rt_alloc_layout_checked!(
+    rt_odd_100000bytes_16align_alloc_layout_checked,
+    100000 - 1,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_100000bytes_16align_alloc_layout_unchecked,
+    100000 - 1,
+    16
+);
+rt_alloc_excess_unused!(
+    rt_odd_100000bytes_16align_alloc_excess_unused,
+    100000 - 1,
+    16
+);
+rt_alloc_excess_used!(rt_odd_100000bytes_16align_alloc_excess_used, 100000 - 1, 16);
+rt_realloc_naive!(rt_odd_100000bytes_16align_realloc_naive, 100000 - 1, 16);
+rt_realloc!(rt_odd_100000bytes_16align_realloc, 100000 - 1, 16);
+rt_realloc_excess_unused!(
+    rt_odd_100000bytes_16align_realloc_excess_unused,
+    100000 - 1,
+    16
+);
+rt_realloc_excess_used!(
+    rt_odd_100000bytes_16align_realloc_excess_used,
+    100000 - 1,
+    16
+);
 
-rt_calloc!(rt_odd_1000000bytes_16align_calloc, 1000000- 1, 16);
-rt_mallocx!(rt_odd_1000000bytes_16align_mallocx, 1000000- 1, 16);
-rt_mallocx_zeroed!(rt_odd_1000000bytes_16align_mallocx_zeroed, 1000000- 1, 16);
-rt_mallocx_nallocx!(rt_odd_1000000bytes_16align_mallocx_nallocx, 1000000- 1, 16);
-rt_alloc_layout_checked!(rt_odd_1000000bytes_16align_alloc_layout_checked, 1000000- 1, 16);
-rt_alloc_layout_unchecked!(rt_odd_1000000bytes_16align_alloc_layout_unchecked, 1000000- 1, 16);
-rt_alloc_excess_unused!(rt_odd_1000000bytes_16align_alloc_excess_unused, 1000000- 1, 16);
-rt_alloc_excess_used!(rt_odd_1000000bytes_16align_alloc_excess_used, 1000000- 1, 16);
-rt_realloc_naive!(rt_odd_1000000bytes_16align_realloc_naive, 1000000- 1, 16);
-rt_realloc!(rt_odd_1000000bytes_16align_realloc, 1000000- 1, 16);
-rt_realloc_excess_unused!(rt_odd_1000000bytes_16align_realloc_excess_unused, 1000000- 1, 16);
-rt_realloc_excess_used!(rt_odd_1000000bytes_16align_realloc_excess_used, 1000000- 1, 16);
+rt_calloc!(rt_odd_1000000bytes_16align_calloc, 1000000 - 1, 16);
+rt_mallocx!(rt_odd_1000000bytes_16align_mallocx, 1000000 - 1, 16);
+rt_mallocx_zeroed!(rt_odd_1000000bytes_16align_mallocx_zeroed, 1000000 - 1, 16);
+rt_mallocx_nallocx!(rt_odd_1000000bytes_16align_mallocx_nallocx, 1000000 - 1, 16);
+rt_alloc_layout_checked!(
+    rt_odd_1000000bytes_16align_alloc_layout_checked,
+    1000000 - 1,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000000bytes_16align_alloc_layout_unchecked,
+    1000000 - 1,
+    16
+);
+rt_alloc_excess_unused!(
+    rt_odd_1000000bytes_16align_alloc_excess_unused,
+    1000000 - 1,
+    16
+);
+rt_alloc_excess_used!(
+    rt_odd_1000000bytes_16align_alloc_excess_used,
+    1000000 - 1,
+    16
+);
+rt_realloc_naive!(rt_odd_1000000bytes_16align_realloc_naive, 1000000 - 1, 16);
+rt_realloc!(rt_odd_1000000bytes_16align_realloc, 1000000 - 1, 16);
+rt_realloc_excess_unused!(
+    rt_odd_1000000bytes_16align_realloc_excess_unused,
+    1000000 - 1,
+    16
+);
+rt_realloc_excess_used!(
+    rt_odd_1000000bytes_16align_realloc_excess_used,
+    1000000 - 1,
+    16
+);
 
 // primes
 rt_calloc!(rt_primes_3bytes_16align_calloc, 3, 16);
@@ -3470,12 +3908,20 @@ rt_mallocx!(rt_primes_16381bytes_16align_mallocx, 16381, 16);
 rt_mallocx_zeroed!(rt_primes_16381bytes_16align_mallocx_zeroed, 16381, 16);
 rt_mallocx_nallocx!(rt_primes_16381bytes_16align_mallocx_nallocx, 16381, 16);
 rt_alloc_layout_checked!(rt_primes_16381bytes_16align_alloc_layout_checked, 16381, 16);
-rt_alloc_layout_unchecked!(rt_primes_16381bytes_16align_alloc_layout_unchecked, 16381, 16);
+rt_alloc_layout_unchecked!(
+    rt_primes_16381bytes_16align_alloc_layout_unchecked,
+    16381,
+    16
+);
 rt_alloc_excess_unused!(rt_primes_16381bytes_16align_alloc_excess_unused, 16381, 16);
 rt_alloc_excess_used!(rt_primes_16381bytes_16align_alloc_excess_used, 16381, 16);
 rt_realloc_naive!(rt_primes_16381bytes_16align_realloc_naive, 16381, 16);
 rt_realloc!(rt_primes_16381bytes_16align_realloc, 16381, 16);
-rt_realloc_excess_unused!(rt_primes_16381bytes_16align_realloc_excess_unused, 16381, 16);
+rt_realloc_excess_unused!(
+    rt_primes_16381bytes_16align_realloc_excess_unused,
+    16381,
+    16
+);
 rt_realloc_excess_used!(rt_primes_16381bytes_16align_realloc_excess_used, 16381, 16);
 
 rt_calloc!(rt_primes_32749bytes_16align_calloc, 32749, 16);
@@ -3483,12 +3929,20 @@ rt_mallocx!(rt_primes_32749bytes_16align_mallocx, 32749, 16);
 rt_mallocx_zeroed!(rt_primes_32749bytes_16align_mallocx_zeroed, 32749, 16);
 rt_mallocx_nallocx!(rt_primes_32749bytes_16align_mallocx_nallocx, 32749, 16);
 rt_alloc_layout_checked!(rt_primes_32749bytes_16align_alloc_layout_checked, 32749, 16);
-rt_alloc_layout_unchecked!(rt_primes_32749bytes_16align_alloc_layout_unchecked, 32749, 16);
+rt_alloc_layout_unchecked!(
+    rt_primes_32749bytes_16align_alloc_layout_unchecked,
+    32749,
+    16
+);
 rt_alloc_excess_unused!(rt_primes_32749bytes_16align_alloc_excess_unused, 32749, 16);
 rt_alloc_excess_used!(rt_primes_32749bytes_16align_alloc_excess_used, 32749, 16);
 rt_realloc_naive!(rt_primes_32749bytes_16align_realloc_naive, 32749, 16);
 rt_realloc!(rt_primes_32749bytes_16align_realloc, 32749, 16);
-rt_realloc_excess_unused!(rt_primes_32749bytes_16align_realloc_excess_unused, 32749, 16);
+rt_realloc_excess_unused!(
+    rt_primes_32749bytes_16align_realloc_excess_unused,
+    32749,
+    16
+);
 rt_realloc_excess_used!(rt_primes_32749bytes_16align_realloc_excess_used, 32749, 16);
 
 rt_calloc!(rt_primes_65537bytes_16align_calloc, 65537, 16);
@@ -3496,39 +3950,91 @@ rt_mallocx!(rt_primes_65537bytes_16align_mallocx, 65537, 16);
 rt_mallocx_zeroed!(rt_primes_65537bytes_16align_mallocx_zeroed, 65537, 16);
 rt_mallocx_nallocx!(rt_primes_65537bytes_16align_mallocx_nallocx, 65537, 16);
 rt_alloc_layout_checked!(rt_primes_65537bytes_16align_alloc_layout_checked, 65537, 16);
-rt_alloc_layout_unchecked!(rt_primes_65537bytes_16align_alloc_layout_unchecked, 65537, 16);
+rt_alloc_layout_unchecked!(
+    rt_primes_65537bytes_16align_alloc_layout_unchecked,
+    65537,
+    16
+);
 rt_alloc_excess_unused!(rt_primes_65537bytes_16align_alloc_excess_unused, 65537, 16);
 rt_alloc_excess_used!(rt_primes_65537bytes_16align_alloc_excess_used, 65537, 16);
 rt_realloc_naive!(rt_primes_65537bytes_16align_realloc_naive, 65537, 16);
 rt_realloc!(rt_primes_65537bytes_16align_realloc, 65537, 16);
-rt_realloc_excess_unused!(rt_primes_65537bytes_16align_realloc_excess_unused, 65537, 16);
+rt_realloc_excess_unused!(
+    rt_primes_65537bytes_16align_realloc_excess_unused,
+    65537,
+    16
+);
 rt_realloc_excess_used!(rt_primes_65537bytes_16align_realloc_excess_used, 65537, 16);
 
 rt_calloc!(rt_primes_131071bytes_16align_calloc, 131071, 16);
 rt_mallocx!(rt_primes_131071bytes_16align_mallocx, 131071, 16);
 rt_mallocx_zeroed!(rt_primes_131071bytes_16align_mallocx_zeroed, 131071, 16);
 rt_mallocx_nallocx!(rt_primes_131071bytes_16align_mallocx_nallocx, 131071, 16);
-rt_alloc_layout_checked!(rt_primes_131071bytes_16align_alloc_layout_checked, 131071, 16);
-rt_alloc_layout_unchecked!(rt_primes_131071bytes_16align_alloc_layout_unchecked, 131071, 16);
-rt_alloc_excess_unused!(rt_primes_131071bytes_16align_alloc_excess_unused, 131071, 16);
+rt_alloc_layout_checked!(
+    rt_primes_131071bytes_16align_alloc_layout_checked,
+    131071,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_131071bytes_16align_alloc_layout_unchecked,
+    131071,
+    16
+);
+rt_alloc_excess_unused!(
+    rt_primes_131071bytes_16align_alloc_excess_unused,
+    131071,
+    16
+);
 rt_alloc_excess_used!(rt_primes_131071bytes_16align_alloc_excess_used, 131071, 16);
 rt_realloc_naive!(rt_primes_131071bytes_16align_realloc_naive, 131071, 16);
 rt_realloc!(rt_primes_131071bytes_16align_realloc, 131071, 16);
-rt_realloc_excess_unused!(rt_primes_131071bytes_16align_realloc_excess_unused, 131071, 16);
-rt_realloc_excess_used!(rt_primes_131071bytes_16align_realloc_excess_used, 131071, 16);
+rt_realloc_excess_unused!(
+    rt_primes_131071bytes_16align_realloc_excess_unused,
+    131071,
+    16
+);
+rt_realloc_excess_used!(
+    rt_primes_131071bytes_16align_realloc_excess_used,
+    131071,
+    16
+);
 
 rt_calloc!(rt_primes_4194301bytes_16align_calloc, 4194301, 16);
 rt_mallocx!(rt_primes_4194301bytes_16align_mallocx, 4194301, 16);
 rt_mallocx_zeroed!(rt_primes_4194301bytes_16align_mallocx_zeroed, 4194301, 16);
 rt_mallocx_nallocx!(rt_primes_4194301bytes_16align_mallocx_nallocx, 4194301, 16);
-rt_alloc_layout_checked!(rt_primes_4194301bytes_16align_alloc_layout_checked, 4194301, 16);
-rt_alloc_layout_unchecked!(rt_primes_4194301bytes_16align_alloc_layout_unchecked, 4194301, 16);
-rt_alloc_excess_unused!(rt_primes_4194301bytes_16align_alloc_excess_unused, 4194301, 16);
-rt_alloc_excess_used!(rt_primes_4194301bytes_16align_alloc_excess_used, 4194301, 16);
+rt_alloc_layout_checked!(
+    rt_primes_4194301bytes_16align_alloc_layout_checked,
+    4194301,
+    16
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_4194301bytes_16align_alloc_layout_unchecked,
+    4194301,
+    16
+);
+rt_alloc_excess_unused!(
+    rt_primes_4194301bytes_16align_alloc_excess_unused,
+    4194301,
+    16
+);
+rt_alloc_excess_used!(
+    rt_primes_4194301bytes_16align_alloc_excess_used,
+    4194301,
+    16
+);
 rt_realloc_naive!(rt_primes_4194301bytes_16align_realloc_naive, 4194301, 16);
 rt_realloc!(rt_primes_4194301bytes_16align_realloc, 4194301, 16);
-rt_realloc_excess_unused!(rt_primes_4194301bytes_16align_realloc_excess_unused, 4194301, 16);
-rt_realloc_excess_used!(rt_primes_4194301bytes_16align_realloc_excess_used, 4194301, 16);
+rt_realloc_excess_unused!(
+    rt_primes_4194301bytes_16align_realloc_excess_unused,
+    4194301,
+    16
+);
+rt_realloc_excess_used!(
+    rt_primes_4194301bytes_16align_realloc_excess_used,
+    4194301,
+    16
+);
 
 // 32 bytes alignment
 
@@ -3759,26 +4265,54 @@ rt_mallocx!(rt_pow2_131072bytes_32align_mallocx, 131072, 32);
 rt_mallocx_zeroed!(rt_pow2_131072bytes_32align_mallocx_zeroed, 131072, 32);
 rt_mallocx_nallocx!(rt_pow2_131072bytes_32align_mallocx_nallocx, 131072, 32);
 rt_alloc_layout_checked!(rt_pow2_131072bytes_32align_alloc_layout_checked, 131072, 32);
-rt_alloc_layout_unchecked!(rt_pow2_131072bytes_32align_alloc_layout_unchecked, 131072, 32);
+rt_alloc_layout_unchecked!(
+    rt_pow2_131072bytes_32align_alloc_layout_unchecked,
+    131072,
+    32
+);
 rt_alloc_excess_unused!(rt_pow2_131072bytes_32align_alloc_excess_unused, 131072, 32);
 rt_alloc_excess_used!(rt_pow2_131072bytes_32align_alloc_excess_used, 131072, 32);
 rt_realloc_naive!(rt_pow2_131072bytes_32align_realloc_naive, 131072, 32);
 rt_realloc!(rt_pow2_131072bytes_32align_realloc, 131072, 32);
-rt_realloc_excess_unused!(rt_pow2_131072bytes_32align_realloc_excess_unused, 131072, 32);
+rt_realloc_excess_unused!(
+    rt_pow2_131072bytes_32align_realloc_excess_unused,
+    131072,
+    32
+);
 rt_realloc_excess_used!(rt_pow2_131072bytes_32align_realloc_excess_used, 131072, 32);
 
 rt_calloc!(rt_pow2_4194304bytes_32align_calloc, 4194304, 32);
 rt_mallocx!(rt_pow2_4194304bytes_32align_mallocx, 4194304, 32);
 rt_mallocx_zeroed!(rt_pow2_4194304bytes_32align_mallocx_zeroed, 4194304, 32);
 rt_mallocx_nallocx!(rt_pow2_4194304bytes_32align_mallocx_nallocx, 4194304, 32);
-rt_alloc_layout_checked!(rt_pow2_4194304bytes_32align_alloc_layout_checked, 4194304, 32);
-rt_alloc_layout_unchecked!(rt_pow2_4194304bytes_32align_alloc_layout_unchecked, 4194304, 32);
-rt_alloc_excess_unused!(rt_pow2_4194304bytes_32align_alloc_excess_unused, 4194304, 32);
+rt_alloc_layout_checked!(
+    rt_pow2_4194304bytes_32align_alloc_layout_checked,
+    4194304,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_pow2_4194304bytes_32align_alloc_layout_unchecked,
+    4194304,
+    32
+);
+rt_alloc_excess_unused!(
+    rt_pow2_4194304bytes_32align_alloc_excess_unused,
+    4194304,
+    32
+);
 rt_alloc_excess_used!(rt_pow2_4194304bytes_32align_alloc_excess_used, 4194304, 32);
 rt_realloc_naive!(rt_pow2_4194304bytes_32align_realloc_naive, 4194304, 32);
 rt_realloc!(rt_pow2_4194304bytes_32align_realloc, 4194304, 32);
-rt_realloc_excess_unused!(rt_pow2_4194304bytes_32align_realloc_excess_unused, 4194304, 32);
-rt_realloc_excess_used!(rt_pow2_4194304bytes_32align_realloc_excess_used, 4194304, 32);
+rt_realloc_excess_unused!(
+    rt_pow2_4194304bytes_32align_realloc_excess_unused,
+    4194304,
+    32
+);
+rt_realloc_excess_used!(
+    rt_pow2_4194304bytes_32align_realloc_excess_used,
+    4194304,
+    32
+);
 
 // Even
 rt_calloc!(rt_even_10bytes_32align_calloc, 10, 32);
@@ -3838,105 +4372,193 @@ rt_mallocx!(rt_even_100000bytes_32align_mallocx, 100000, 32);
 rt_mallocx_zeroed!(rt_even_100000bytes_32align_mallocx_zeroed, 100000, 32);
 rt_mallocx_nallocx!(rt_even_100000bytes_32align_mallocx_nallocx, 100000, 32);
 rt_alloc_layout_checked!(rt_even_100000bytes_32align_alloc_layout_checked, 100000, 32);
-rt_alloc_layout_unchecked!(rt_even_100000bytes_32align_alloc_layout_unchecked, 100000, 32);
+rt_alloc_layout_unchecked!(
+    rt_even_100000bytes_32align_alloc_layout_unchecked,
+    100000,
+    32
+);
 rt_alloc_excess_unused!(rt_even_100000bytes_32align_alloc_excess_unused, 100000, 32);
 rt_alloc_excess_used!(rt_even_100000bytes_32align_alloc_excess_used, 100000, 32);
 rt_realloc_naive!(rt_even_100000bytes_32align_realloc_naive, 100000, 32);
 rt_realloc!(rt_even_100000bytes_32align_realloc, 100000, 32);
-rt_realloc_excess_unused!(rt_even_100000bytes_32align_realloc_excess_unused, 100000, 32);
+rt_realloc_excess_unused!(
+    rt_even_100000bytes_32align_realloc_excess_unused,
+    100000,
+    32
+);
 rt_realloc_excess_used!(rt_even_100000bytes_32align_realloc_excess_used, 100000, 32);
 
 rt_calloc!(rt_even_1000000bytes_32align_calloc, 1000000, 32);
 rt_mallocx!(rt_even_1000000bytes_32align_mallocx, 1000000, 32);
 rt_mallocx_zeroed!(rt_even_1000000bytes_32align_mallocx_zeroed, 1000000, 32);
 rt_mallocx_nallocx!(rt_even_1000000bytes_32align_mallocx_nallocx, 1000000, 32);
-rt_alloc_layout_checked!(rt_even_1000000bytes_32align_alloc_layout_checked, 1000000, 32);
-rt_alloc_layout_unchecked!(rt_even_1000000bytes_32align_alloc_layout_unchecked, 1000000, 32);
-rt_alloc_excess_unused!(rt_even_1000000bytes_32align_alloc_excess_unused, 1000000, 32);
+rt_alloc_layout_checked!(
+    rt_even_1000000bytes_32align_alloc_layout_checked,
+    1000000,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_even_1000000bytes_32align_alloc_layout_unchecked,
+    1000000,
+    32
+);
+rt_alloc_excess_unused!(
+    rt_even_1000000bytes_32align_alloc_excess_unused,
+    1000000,
+    32
+);
 rt_alloc_excess_used!(rt_even_1000000bytes_32align_alloc_excess_used, 1000000, 32);
 rt_realloc_naive!(rt_even_1000000bytes_32align_realloc_naive, 1000000, 32);
 rt_realloc!(rt_even_1000000bytes_32align_realloc, 1000000, 32);
-rt_realloc_excess_unused!(rt_even_1000000bytes_32align_realloc_excess_unused, 1000000, 32);
-rt_realloc_excess_used!(rt_even_1000000bytes_32align_realloc_excess_used, 1000000, 32);
+rt_realloc_excess_unused!(
+    rt_even_1000000bytes_32align_realloc_excess_unused,
+    1000000,
+    32
+);
+rt_realloc_excess_used!(
+    rt_even_1000000bytes_32align_realloc_excess_used,
+    1000000,
+    32
+);
 
 // Odd:
-rt_calloc!(rt_odd_10bytes_32align_calloc, 10- 1, 32);
-rt_mallocx!(rt_odd_10bytes_32align_mallocx, 10- 1, 32);
-rt_mallocx_zeroed!(rt_odd_10bytes_32align_mallocx_zeroed, 10- 1, 32);
-rt_mallocx_nallocx!(rt_odd_10bytes_32align_mallocx_nallocx, 10- 1, 32);
-rt_alloc_layout_checked!(rt_odd_10bytes_32align_alloc_layout_checked, 10- 1, 32);
-rt_alloc_layout_unchecked!(rt_odd_10bytes_32align_alloc_layout_unchecked, 10- 1, 32);
-rt_alloc_excess_unused!(rt_odd_10bytes_32align_alloc_excess_unused, 10- 1, 32);
-rt_alloc_excess_used!(rt_odd_10bytes_32align_alloc_excess_used, 10- 1, 32);
-rt_realloc_naive!(rt_odd_10bytes_32align_realloc_naive, 10- 1, 32);
-rt_realloc!(rt_odd_10bytes_32align_realloc, 10- 1, 32);
-rt_realloc_excess_unused!(rt_odd_10bytes_32align_realloc_excess_unused, 10- 1, 32);
-rt_realloc_excess_used!(rt_odd_10bytes_32align_realloc_excess_used, 10- 1, 32);
+rt_calloc!(rt_odd_10bytes_32align_calloc, 10 - 1, 32);
+rt_mallocx!(rt_odd_10bytes_32align_mallocx, 10 - 1, 32);
+rt_mallocx_zeroed!(rt_odd_10bytes_32align_mallocx_zeroed, 10 - 1, 32);
+rt_mallocx_nallocx!(rt_odd_10bytes_32align_mallocx_nallocx, 10 - 1, 32);
+rt_alloc_layout_checked!(rt_odd_10bytes_32align_alloc_layout_checked, 10 - 1, 32);
+rt_alloc_layout_unchecked!(rt_odd_10bytes_32align_alloc_layout_unchecked, 10 - 1, 32);
+rt_alloc_excess_unused!(rt_odd_10bytes_32align_alloc_excess_unused, 10 - 1, 32);
+rt_alloc_excess_used!(rt_odd_10bytes_32align_alloc_excess_used, 10 - 1, 32);
+rt_realloc_naive!(rt_odd_10bytes_32align_realloc_naive, 10 - 1, 32);
+rt_realloc!(rt_odd_10bytes_32align_realloc, 10 - 1, 32);
+rt_realloc_excess_unused!(rt_odd_10bytes_32align_realloc_excess_unused, 10 - 1, 32);
+rt_realloc_excess_used!(rt_odd_10bytes_32align_realloc_excess_used, 10 - 1, 32);
 
-rt_calloc!(rt_odd_100bytes_32align_calloc, 100- 1, 32);
-rt_mallocx!(rt_odd_100bytes_32align_mallocx, 100- 1, 32);
-rt_mallocx_zeroed!(rt_odd_100bytes_32align_mallocx_zeroed, 100- 1, 32);
-rt_mallocx_nallocx!(rt_odd_100bytes_32align_mallocx_nallocx, 100- 1, 32);
-rt_alloc_layout_checked!(rt_odd_100bytes_32align_alloc_layout_checked, 100- 1, 32);
-rt_alloc_layout_unchecked!(rt_odd_100bytes_32align_alloc_layout_unchecked, 100- 1, 32);
-rt_alloc_excess_unused!(rt_odd_100bytes_32align_alloc_excess_unused, 100- 1, 32);
-rt_alloc_excess_used!(rt_odd_100bytes_32align_alloc_excess_used, 100- 1, 32);
-rt_realloc_naive!(rt_odd_100bytes_32align_realloc_naive, 100- 1, 32);
-rt_realloc!(rt_odd_100bytes_32align_realloc, 100- 1, 32);
-rt_realloc_excess_unused!(rt_odd_100bytes_32align_realloc_excess_unused, 100- 1, 32);
-rt_realloc_excess_used!(rt_odd_100bytes_32align_realloc_excess_used, 100- 1, 32);
+rt_calloc!(rt_odd_100bytes_32align_calloc, 100 - 1, 32);
+rt_mallocx!(rt_odd_100bytes_32align_mallocx, 100 - 1, 32);
+rt_mallocx_zeroed!(rt_odd_100bytes_32align_mallocx_zeroed, 100 - 1, 32);
+rt_mallocx_nallocx!(rt_odd_100bytes_32align_mallocx_nallocx, 100 - 1, 32);
+rt_alloc_layout_checked!(rt_odd_100bytes_32align_alloc_layout_checked, 100 - 1, 32);
+rt_alloc_layout_unchecked!(rt_odd_100bytes_32align_alloc_layout_unchecked, 100 - 1, 32);
+rt_alloc_excess_unused!(rt_odd_100bytes_32align_alloc_excess_unused, 100 - 1, 32);
+rt_alloc_excess_used!(rt_odd_100bytes_32align_alloc_excess_used, 100 - 1, 32);
+rt_realloc_naive!(rt_odd_100bytes_32align_realloc_naive, 100 - 1, 32);
+rt_realloc!(rt_odd_100bytes_32align_realloc, 100 - 1, 32);
+rt_realloc_excess_unused!(rt_odd_100bytes_32align_realloc_excess_unused, 100 - 1, 32);
+rt_realloc_excess_used!(rt_odd_100bytes_32align_realloc_excess_used, 100 - 1, 32);
 
-rt_calloc!(rt_odd_1000bytes_32align_calloc, 1000- 1, 32);
-rt_mallocx!(rt_odd_1000bytes_32align_mallocx, 1000- 1, 32);
-rt_mallocx_zeroed!(rt_odd_1000bytes_32align_mallocx_zeroed, 1000- 1, 32);
-rt_mallocx_nallocx!(rt_odd_1000bytes_32align_mallocx_nallocx, 1000- 1, 32);
-rt_alloc_layout_checked!(rt_odd_1000bytes_32align_alloc_layout_checked, 1000- 1, 32);
-rt_alloc_layout_unchecked!(rt_odd_1000bytes_32align_alloc_layout_unchecked, 1000- 1, 32);
-rt_alloc_excess_unused!(rt_odd_1000bytes_32align_alloc_excess_unused, 1000- 1, 32);
-rt_alloc_excess_used!(rt_odd_1000bytes_32align_alloc_excess_used, 1000- 1, 32);
-rt_realloc_naive!(rt_odd_1000bytes_32align_realloc_naive, 1000- 1, 32);
-rt_realloc!(rt_odd_1000bytes_32align_realloc, 1000- 1, 32);
-rt_realloc_excess_unused!(rt_odd_1000bytes_32align_realloc_excess_unused, 1000- 1, 32);
-rt_realloc_excess_used!(rt_odd_1000bytes_32align_realloc_excess_used, 1000- 1, 32);
+rt_calloc!(rt_odd_1000bytes_32align_calloc, 1000 - 1, 32);
+rt_mallocx!(rt_odd_1000bytes_32align_mallocx, 1000 - 1, 32);
+rt_mallocx_zeroed!(rt_odd_1000bytes_32align_mallocx_zeroed, 1000 - 1, 32);
+rt_mallocx_nallocx!(rt_odd_1000bytes_32align_mallocx_nallocx, 1000 - 1, 32);
+rt_alloc_layout_checked!(rt_odd_1000bytes_32align_alloc_layout_checked, 1000 - 1, 32);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000bytes_32align_alloc_layout_unchecked,
+    1000 - 1,
+    32
+);
+rt_alloc_excess_unused!(rt_odd_1000bytes_32align_alloc_excess_unused, 1000 - 1, 32);
+rt_alloc_excess_used!(rt_odd_1000bytes_32align_alloc_excess_used, 1000 - 1, 32);
+rt_realloc_naive!(rt_odd_1000bytes_32align_realloc_naive, 1000 - 1, 32);
+rt_realloc!(rt_odd_1000bytes_32align_realloc, 1000 - 1, 32);
+rt_realloc_excess_unused!(rt_odd_1000bytes_32align_realloc_excess_unused, 1000 - 1, 32);
+rt_realloc_excess_used!(rt_odd_1000bytes_32align_realloc_excess_used, 1000 - 1, 32);
 
-rt_calloc!(rt_odd_10000bytes_32align_calloc, 10000- 1, 32);
-rt_mallocx!(rt_odd_10000bytes_32align_mallocx, 10000- 1, 32);
-rt_mallocx_zeroed!(rt_odd_10000bytes_32align_mallocx_zeroed, 10000- 1, 32);
-rt_mallocx_nallocx!(rt_odd_10000bytes_32align_mallocx_nallocx, 10000- 1, 32);
-rt_alloc_layout_checked!(rt_odd_10000bytes_32align_alloc_layout_checked, 10000- 1, 32);
-rt_alloc_layout_unchecked!(rt_odd_10000bytes_32align_alloc_layout_unchecked, 10000- 1, 32);
-rt_alloc_excess_unused!(rt_odd_10000bytes_32align_alloc_excess_unused, 10000- 1, 32);
-rt_alloc_excess_used!(rt_odd_10000bytes_32align_alloc_excess_used, 10000- 1, 32);
-rt_realloc_naive!(rt_odd_10000bytes_32align_realloc_naive, 10000- 1, 32);
-rt_realloc!(rt_odd_10000bytes_32align_realloc, 10000- 1, 32);
-rt_realloc_excess_unused!(rt_odd_10000bytes_32align_realloc_excess_unused, 10000- 1, 32);
-rt_realloc_excess_used!(rt_odd_10000bytes_32align_realloc_excess_used, 10000- 1, 32);
+rt_calloc!(rt_odd_10000bytes_32align_calloc, 10000 - 1, 32);
+rt_mallocx!(rt_odd_10000bytes_32align_mallocx, 10000 - 1, 32);
+rt_mallocx_zeroed!(rt_odd_10000bytes_32align_mallocx_zeroed, 10000 - 1, 32);
+rt_mallocx_nallocx!(rt_odd_10000bytes_32align_mallocx_nallocx, 10000 - 1, 32);
+rt_alloc_layout_checked!(
+    rt_odd_10000bytes_32align_alloc_layout_checked,
+    10000 - 1,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_10000bytes_32align_alloc_layout_unchecked,
+    10000 - 1,
+    32
+);
+rt_alloc_excess_unused!(rt_odd_10000bytes_32align_alloc_excess_unused, 10000 - 1, 32);
+rt_alloc_excess_used!(rt_odd_10000bytes_32align_alloc_excess_used, 10000 - 1, 32);
+rt_realloc_naive!(rt_odd_10000bytes_32align_realloc_naive, 10000 - 1, 32);
+rt_realloc!(rt_odd_10000bytes_32align_realloc, 10000 - 1, 32);
+rt_realloc_excess_unused!(
+    rt_odd_10000bytes_32align_realloc_excess_unused,
+    10000 - 1,
+    32
+);
+rt_realloc_excess_used!(rt_odd_10000bytes_32align_realloc_excess_used, 10000 - 1, 32);
 
-rt_calloc!(rt_odd_100000bytes_32align_calloc, 100000- 1, 32);
-rt_mallocx!(rt_odd_100000bytes_32align_mallocx, 100000- 1, 32);
-rt_mallocx_zeroed!(rt_odd_100000bytes_32align_mallocx_zeroed, 100000- 1, 32);
-rt_mallocx_nallocx!(rt_odd_100000bytes_32align_mallocx_nallocx, 100000- 1, 32);
-rt_alloc_layout_checked!(rt_odd_100000bytes_32align_alloc_layout_checked, 100000- 1, 32);
-rt_alloc_layout_unchecked!(rt_odd_100000bytes_32align_alloc_layout_unchecked, 100000- 1, 32);
-rt_alloc_excess_unused!(rt_odd_100000bytes_32align_alloc_excess_unused, 100000- 1, 32);
-rt_alloc_excess_used!(rt_odd_100000bytes_32align_alloc_excess_used, 100000- 1, 32);
-rt_realloc_naive!(rt_odd_100000bytes_32align_realloc_naive, 100000- 1, 32);
-rt_realloc!(rt_odd_100000bytes_32align_realloc, 100000- 1, 32);
-rt_realloc_excess_unused!(rt_odd_100000bytes_32align_realloc_excess_unused, 100000- 1, 32);
-rt_realloc_excess_used!(rt_odd_100000bytes_32align_realloc_excess_used, 100000- 1, 32);
+rt_calloc!(rt_odd_100000bytes_32align_calloc, 100000 - 1, 32);
+rt_mallocx!(rt_odd_100000bytes_32align_mallocx, 100000 - 1, 32);
+rt_mallocx_zeroed!(rt_odd_100000bytes_32align_mallocx_zeroed, 100000 - 1, 32);
+rt_mallocx_nallocx!(rt_odd_100000bytes_32align_mallocx_nallocx, 100000 - 1, 32);
+rt_alloc_layout_checked!(
+    rt_odd_100000bytes_32align_alloc_layout_checked,
+    100000 - 1,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_100000bytes_32align_alloc_layout_unchecked,
+    100000 - 1,
+    32
+);
+rt_alloc_excess_unused!(
+    rt_odd_100000bytes_32align_alloc_excess_unused,
+    100000 - 1,
+    32
+);
+rt_alloc_excess_used!(rt_odd_100000bytes_32align_alloc_excess_used, 100000 - 1, 32);
+rt_realloc_naive!(rt_odd_100000bytes_32align_realloc_naive, 100000 - 1, 32);
+rt_realloc!(rt_odd_100000bytes_32align_realloc, 100000 - 1, 32);
+rt_realloc_excess_unused!(
+    rt_odd_100000bytes_32align_realloc_excess_unused,
+    100000 - 1,
+    32
+);
+rt_realloc_excess_used!(
+    rt_odd_100000bytes_32align_realloc_excess_used,
+    100000 - 1,
+    32
+);
 
-rt_calloc!(rt_odd_1000000bytes_32align_calloc, 1000000- 1, 32);
-rt_mallocx!(rt_odd_1000000bytes_32align_mallocx, 1000000- 1, 32);
-rt_mallocx_zeroed!(rt_odd_1000000bytes_32align_mallocx_zeroed, 1000000- 1, 32);
-rt_mallocx_nallocx!(rt_odd_1000000bytes_32align_mallocx_nallocx, 1000000- 1, 32);
-rt_alloc_layout_checked!(rt_odd_1000000bytes_32align_alloc_layout_checked, 1000000- 1, 32);
-rt_alloc_layout_unchecked!(rt_odd_1000000bytes_32align_alloc_layout_unchecked, 1000000- 1, 32);
-rt_alloc_excess_unused!(rt_odd_1000000bytes_32align_alloc_excess_unused, 1000000- 1, 32);
-rt_alloc_excess_used!(rt_odd_1000000bytes_32align_alloc_excess_used, 1000000- 1, 32);
-rt_realloc_naive!(rt_odd_1000000bytes_32align_realloc_naive, 1000000- 1, 32);
-rt_realloc!(rt_odd_1000000bytes_32align_realloc, 1000000- 1, 32);
-rt_realloc_excess_unused!(rt_odd_1000000bytes_32align_realloc_excess_unused, 1000000- 1, 32);
-rt_realloc_excess_used!(rt_odd_1000000bytes_32align_realloc_excess_used, 1000000- 1, 32);
+rt_calloc!(rt_odd_1000000bytes_32align_calloc, 1000000 - 1, 32);
+rt_mallocx!(rt_odd_1000000bytes_32align_mallocx, 1000000 - 1, 32);
+rt_mallocx_zeroed!(rt_odd_1000000bytes_32align_mallocx_zeroed, 1000000 - 1, 32);
+rt_mallocx_nallocx!(rt_odd_1000000bytes_32align_mallocx_nallocx, 1000000 - 1, 32);
+rt_alloc_layout_checked!(
+    rt_odd_1000000bytes_32align_alloc_layout_checked,
+    1000000 - 1,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_odd_1000000bytes_32align_alloc_layout_unchecked,
+    1000000 - 1,
+    32
+);
+rt_alloc_excess_unused!(
+    rt_odd_1000000bytes_32align_alloc_excess_unused,
+    1000000 - 1,
+    32
+);
+rt_alloc_excess_used!(
+    rt_odd_1000000bytes_32align_alloc_excess_used,
+    1000000 - 1,
+    32
+);
+rt_realloc_naive!(rt_odd_1000000bytes_32align_realloc_naive, 1000000 - 1, 32);
+rt_realloc!(rt_odd_1000000bytes_32align_realloc, 1000000 - 1, 32);
+rt_realloc_excess_unused!(
+    rt_odd_1000000bytes_32align_realloc_excess_unused,
+    1000000 - 1,
+    32
+);
+rt_realloc_excess_used!(
+    rt_odd_1000000bytes_32align_realloc_excess_used,
+    1000000 - 1,
+    32
+);
 
 // primes
 rt_calloc!(rt_primes_3bytes_32align_calloc, 3, 32);
@@ -4126,12 +4748,20 @@ rt_mallocx!(rt_primes_16381bytes_32align_mallocx, 16381, 32);
 rt_mallocx_zeroed!(rt_primes_16381bytes_32align_mallocx_zeroed, 16381, 32);
 rt_mallocx_nallocx!(rt_primes_16381bytes_32align_mallocx_nallocx, 16381, 32);
 rt_alloc_layout_checked!(rt_primes_16381bytes_32align_alloc_layout_checked, 16381, 32);
-rt_alloc_layout_unchecked!(rt_primes_16381bytes_32align_alloc_layout_unchecked, 16381, 32);
+rt_alloc_layout_unchecked!(
+    rt_primes_16381bytes_32align_alloc_layout_unchecked,
+    16381,
+    32
+);
 rt_alloc_excess_unused!(rt_primes_16381bytes_32align_alloc_excess_unused, 16381, 32);
 rt_alloc_excess_used!(rt_primes_16381bytes_32align_alloc_excess_used, 16381, 32);
 rt_realloc_naive!(rt_primes_16381bytes_32align_realloc_naive, 16381, 32);
 rt_realloc!(rt_primes_16381bytes_32align_realloc, 16381, 32);
-rt_realloc_excess_unused!(rt_primes_16381bytes_32align_realloc_excess_unused, 16381, 32);
+rt_realloc_excess_unused!(
+    rt_primes_16381bytes_32align_realloc_excess_unused,
+    16381,
+    32
+);
 rt_realloc_excess_used!(rt_primes_16381bytes_32align_realloc_excess_used, 16381, 32);
 
 rt_calloc!(rt_primes_32749bytes_32align_calloc, 32749, 32);
@@ -4139,12 +4769,20 @@ rt_mallocx!(rt_primes_32749bytes_32align_mallocx, 32749, 32);
 rt_mallocx_zeroed!(rt_primes_32749bytes_32align_mallocx_zeroed, 32749, 32);
 rt_mallocx_nallocx!(rt_primes_32749bytes_32align_mallocx_nallocx, 32749, 32);
 rt_alloc_layout_checked!(rt_primes_32749bytes_32align_alloc_layout_checked, 32749, 32);
-rt_alloc_layout_unchecked!(rt_primes_32749bytes_32align_alloc_layout_unchecked, 32749, 32);
+rt_alloc_layout_unchecked!(
+    rt_primes_32749bytes_32align_alloc_layout_unchecked,
+    32749,
+    32
+);
 rt_alloc_excess_unused!(rt_primes_32749bytes_32align_alloc_excess_unused, 32749, 32);
 rt_alloc_excess_used!(rt_primes_32749bytes_32align_alloc_excess_used, 32749, 32);
 rt_realloc_naive!(rt_primes_32749bytes_32align_realloc_naive, 32749, 32);
 rt_realloc!(rt_primes_32749bytes_32align_realloc, 32749, 32);
-rt_realloc_excess_unused!(rt_primes_32749bytes_32align_realloc_excess_unused, 32749, 32);
+rt_realloc_excess_unused!(
+    rt_primes_32749bytes_32align_realloc_excess_unused,
+    32749,
+    32
+);
 rt_realloc_excess_used!(rt_primes_32749bytes_32align_realloc_excess_used, 32749, 32);
 
 rt_calloc!(rt_primes_65537bytes_32align_calloc, 65537, 32);
@@ -4152,37 +4790,88 @@ rt_mallocx!(rt_primes_65537bytes_32align_mallocx, 65537, 32);
 rt_mallocx_zeroed!(rt_primes_65537bytes_32align_mallocx_zeroed, 65537, 32);
 rt_mallocx_nallocx!(rt_primes_65537bytes_32align_mallocx_nallocx, 65537, 32);
 rt_alloc_layout_checked!(rt_primes_65537bytes_32align_alloc_layout_checked, 65537, 32);
-rt_alloc_layout_unchecked!(rt_primes_65537bytes_32align_alloc_layout_unchecked, 65537, 32);
+rt_alloc_layout_unchecked!(
+    rt_primes_65537bytes_32align_alloc_layout_unchecked,
+    65537,
+    32
+);
 rt_alloc_excess_unused!(rt_primes_65537bytes_32align_alloc_excess_unused, 65537, 32);
 rt_alloc_excess_used!(rt_primes_65537bytes_32align_alloc_excess_used, 65537, 32);
 rt_realloc_naive!(rt_primes_65537bytes_32align_realloc_naive, 65537, 32);
 rt_realloc!(rt_primes_65537bytes_32align_realloc, 65537, 32);
-rt_realloc_excess_unused!(rt_primes_65537bytes_32align_realloc_excess_unused, 65537, 32);
+rt_realloc_excess_unused!(
+    rt_primes_65537bytes_32align_realloc_excess_unused,
+    65537,
+    32
+);
 rt_realloc_excess_used!(rt_primes_65537bytes_32align_realloc_excess_used, 65537, 32);
 
 rt_calloc!(rt_primes_131071bytes_32align_calloc, 131071, 32);
 rt_mallocx!(rt_primes_131071bytes_32align_mallocx, 131071, 32);
 rt_mallocx_zeroed!(rt_primes_131071bytes_32align_mallocx_zeroed, 131071, 32);
 rt_mallocx_nallocx!(rt_primes_131071bytes_32align_mallocx_nallocx, 131071, 32);
-rt_alloc_layout_checked!(rt_primes_131071bytes_32align_alloc_layout_checked, 131071, 32);
-rt_alloc_layout_unchecked!(rt_primes_131071bytes_32align_alloc_layout_unchecked, 131071, 32);
-rt_alloc_excess_unused!(rt_primes_131071bytes_32align_alloc_excess_unused, 131071, 32);
+rt_alloc_layout_checked!(
+    rt_primes_131071bytes_32align_alloc_layout_checked,
+    131071,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_131071bytes_32align_alloc_layout_unchecked,
+    131071,
+    32
+);
+rt_alloc_excess_unused!(
+    rt_primes_131071bytes_32align_alloc_excess_unused,
+    131071,
+    32
+);
 rt_alloc_excess_used!(rt_primes_131071bytes_32align_alloc_excess_used, 131071, 32);
 rt_realloc_naive!(rt_primes_131071bytes_32align_realloc_naive, 131071, 32);
 rt_realloc!(rt_primes_131071bytes_32align_realloc, 131071, 32);
-rt_realloc_excess_unused!(rt_primes_131071bytes_32align_realloc_excess_unused, 131071, 32);
-rt_realloc_excess_used!(rt_primes_131071bytes_32align_realloc_excess_used, 131071, 32);
+rt_realloc_excess_unused!(
+    rt_primes_131071bytes_32align_realloc_excess_unused,
+    131071,
+    32
+);
+rt_realloc_excess_used!(
+    rt_primes_131071bytes_32align_realloc_excess_used,
+    131071,
+    32
+);
 
 rt_calloc!(rt_primes_4194301bytes_32align_calloc, 4194301, 32);
 rt_mallocx!(rt_primes_4194301bytes_32align_mallocx, 4194301, 32);
 rt_mallocx_zeroed!(rt_primes_4194301bytes_32align_mallocx_zeroed, 4194301, 32);
 rt_mallocx_nallocx!(rt_primes_4194301bytes_32align_mallocx_nallocx, 4194301, 32);
-rt_alloc_layout_checked!(rt_primes_4194301bytes_32align_alloc_layout_checked, 4194301, 32);
-rt_alloc_layout_unchecked!(rt_primes_4194301bytes_32align_alloc_layout_unchecked, 4194301, 32);
-rt_alloc_excess_unused!(rt_primes_4194301bytes_32align_alloc_excess_unused, 4194301, 32);
-rt_alloc_excess_used!(rt_primes_4194301bytes_32align_alloc_excess_used, 4194301, 32);
+rt_alloc_layout_checked!(
+    rt_primes_4194301bytes_32align_alloc_layout_checked,
+    4194301,
+    32
+);
+rt_alloc_layout_unchecked!(
+    rt_primes_4194301bytes_32align_alloc_layout_unchecked,
+    4194301,
+    32
+);
+rt_alloc_excess_unused!(
+    rt_primes_4194301bytes_32align_alloc_excess_unused,
+    4194301,
+    32
+);
+rt_alloc_excess_used!(
+    rt_primes_4194301bytes_32align_alloc_excess_used,
+    4194301,
+    32
+);
 rt_realloc_naive!(rt_primes_4194301bytes_32align_realloc_naive, 4194301, 32);
 rt_realloc!(rt_primes_4194301bytes_32align_realloc, 4194301, 32);
-rt_realloc_excess_unused!(rt_primes_4194301bytes_32align_realloc_excess_unused, 4194301, 32);
-rt_realloc_excess_used!(rt_primes_4194301bytes_32align_realloc_excess_used, 4194301, 32);
-
+rt_realloc_excess_unused!(
+    rt_primes_4194301bytes_32align_realloc_excess_unused,
+    4194301,
+    32
+);
+rt_realloc_excess_used!(
+    rt_primes_4194301bytes_32align_realloc_excess_used,
+    4194301,
+    32
+);

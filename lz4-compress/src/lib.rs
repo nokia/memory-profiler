@@ -8,16 +8,10 @@ extern crate byteorder;
 #[macro_use]
 extern crate quick_error;
 
-mod decompress;
 mod compress;
+mod decompress;
 #[cfg(test)]
 mod tests;
 
-pub use decompress::{
-    decompress,
-    decompress_into
-};
-pub use compress::{
-    compress,
-    compress_into
-};
+pub use compress::{compress, compress_into};
+pub use decompress::{decompress, decompress_into};

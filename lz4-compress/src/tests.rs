@@ -2,14 +2,17 @@
 
 use std::str;
 
-use {decompress, compress};
+use {compress, decompress};
 
 /// Test that the compressed string decompresses to the original string.
 fn inverse(s: &str) {
     let compressed = compress(s.as_bytes());
     println!("Compressed '{}' into {:?}", s, compressed);
     let decompressed = decompress(&compressed).unwrap();
-    println!("Decompressed it into {:?}", str::from_utf8(&decompressed).unwrap());
+    println!(
+        "Decompressed it into {:?}",
+        str::from_utf8(&decompressed).unwrap()
+    );
     assert_eq!(decompressed, s.as_bytes());
 }
 
@@ -82,5 +85,11 @@ fn big_compression() {
 #[test]
 fn compression_output() {
     let output = compress(b"Random data, a, aa, aaa, aaaa, aaaaa, aaaaaa, aaaaaaa, aaaaaaaa");
-    assert_eq!(output, &[208, 82, 97, 110, 100, 111, 109, 32, 100, 97, 116, 97, 44, 32, 3, 0, 1, 4, 0, 2, 5, 0, 3, 6, 0, 4, 7, 0, 5, 8, 0, 6, 9, 0, 16, 97][..]);
+    assert_eq!(
+        output,
+        &[
+            208, 82, 97, 110, 100, 111, 109, 32, 100, 97, 116, 97, 44, 32, 3, 0, 1, 4, 0, 2, 5, 0,
+            3, 6, 0, 4, 7, 0, 5, 8, 0, 6, 9, 0, 16, 97
+        ][..]
+    );
 }

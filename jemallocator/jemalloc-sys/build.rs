@@ -106,7 +106,8 @@ fn main() {
         Path::new("jemalloc"),
         jemalloc_src_dir.clone(),
         &copy_options,
-    ).expect("failed to copy jemalloc source code to OUT_DIR");
+    )
+    .expect("failed to copy jemalloc source code to OUT_DIR");
 
     // Configuration files
     let config_files = ["configure", "VERSION"];
@@ -141,7 +142,8 @@ fn main() {
             fs::copy(
                 Path::new(&format!("configure/{}", f)),
                 jemalloc_src_dir.join(f),
-            ).expect("failed to copy config file to OUT_DIR");
+            )
+            .expect("failed to copy config file to OUT_DIR");
         }
     }
 
@@ -154,12 +156,13 @@ fn main() {
             .unwrap()
             .replace("C:\\", "/c/")
             .replace("\\", "/"),
-    ).current_dir(&build_dir)
-        .env("CC", compiler.path())
-        .env("CFLAGS", cflags.clone())
-        .env("LDFLAGS", cflags.clone())
-        .env("CPPFLAGS", cflags.clone())
-        .arg("--disable-cxx");
+    )
+    .current_dir(&build_dir)
+    .env("CC", compiler.path())
+    .env("CFLAGS", cflags.clone())
+    .env("LDFLAGS", cflags.clone())
+    .env("CPPFLAGS", cflags.clone())
+    .arg("--disable-cxx");
 
     if target == "sparc64-unknown-linux-gnu" {
         // jemalloc's configure doesn't detect this value
@@ -183,8 +186,8 @@ fn main() {
     // https://github.com/rust-lang/rust/commit/536011d929ecbd1170baf34e09580e567c971f95
     // https://github.com/rust-lang/rust/commit/9f3de647326fbe50e0e283b9018ab7c41abccde3
     // https://github.com/rust-lang/rust/commit/ed015456a114ae907a36af80c06f81ea93182a24
-    if !use_prefix &&
-        (target.contains("android")
+    if !use_prefix
+        && (target.contains("android")
             || target.contains("dragonfly")
             || target.contains("musl")
             || target.contains("darwin"))
@@ -222,8 +225,11 @@ fn main() {
 
     run(&mut cmd);
 
-    let make = if host.contains("bitrig") || host.contains("dragonfly") || host.contains("freebsd")
-        || host.contains("netbsd") || host.contains("openbsd")
+    let make = if host.contains("bitrig")
+        || host.contains("dragonfly")
+        || host.contains("freebsd")
+        || host.contains("netbsd")
+        || host.contains("openbsd")
     {
         "gmake"
     } else {

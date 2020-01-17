@@ -44,7 +44,7 @@
 
 extern crate libc;
 
-use libc::{c_int, c_void, size_t, c_char, c_uint};
+use libc::{c_char, c_int, c_uint, c_void, size_t};
 type c_bool = c_int;
 
 /// Align the memory allocation to start at an address that is a
@@ -85,7 +85,7 @@ pub const MALLOCX_ZERO: c_int = 0x40;
 /// `tc` must have been acquired via the `tcache.create mallctl`. This function
 /// does not validate that `tc` specifies a valid identifier.
 #[inline]
-pub fn MALLOCX_TCACHE(tc: usize)	-> c_int {
+pub fn MALLOCX_TCACHE(tc: usize) -> c_int {
     tc.wrapping_add(2).wrapping_shl(8) as c_int
 }
 
@@ -464,12 +464,13 @@ extern "C" {
     ///
     /// [jemalloc_mallctl]: http://jemalloc.net/jemalloc.3.html#mallctl_namespace
     #[cfg_attr(prefixed, link_name = "_rjem_mallctl")]
-    pub fn mallctl(name: *const c_char,
-                   oldp: *mut c_void,
-                   oldlenp: *mut size_t,
-                   newp: *mut c_void,
-                   newlen: size_t)
-                   -> c_int;
+    pub fn mallctl(
+        name: *const c_char,
+        oldp: *mut c_void,
+        oldlenp: *mut size_t,
+        newp: *mut c_void,
+        newlen: size_t,
+    ) -> c_int;
     /// Translates a name to a “Management Information Base” (MIB) that can be
     /// passed repeatedly to [`mallctlbymib`].
     ///
@@ -489,13 +490,14 @@ extern "C" {
 
     /// Like [`mallctl`] but taking a `mib` as input instead of a name.
     #[cfg_attr(prefixed, link_name = "_rjem_mallctlbymib")]
-    pub fn mallctlbymib(mib: *const size_t,
-                        miblen: size_t,
-                        oldp: *mut c_void,
-                        oldpenp: *mut size_t,
-                        newp: *mut c_void,
-                        newlen: size_t)
-                        -> c_int;
+    pub fn mallctlbymib(
+        mib: *const size_t,
+        miblen: size_t,
+        oldp: *mut c_void,
+        oldpenp: *mut size_t,
+        newp: *mut c_void,
+        newlen: size_t,
+    ) -> c_int;
 
     /// Writes summary statistics via the `write_cb` callback function pointer
     /// and `cbopaque` data passed to `write_cb`, or [`malloc_message`] if `write_cb`
@@ -525,9 +527,11 @@ extern "C" {
     /// completely up to date, since extra locking would be required to merge
     /// counters that track thread cache operations.
     #[cfg_attr(prefixed, link_name = "_rjem_malloc_stats_print")]
-    pub fn malloc_stats_print(write_cb: extern "C" fn(*mut c_void, *const c_char),
-                              cbopaque: *mut c_void,
-                              opts: *const c_char);
+    pub fn malloc_stats_print(
+        write_cb: extern "C" fn(*mut c_void, *const c_char),
+        cbopaque: *mut c_void,
+        opts: *const c_char,
+    );
 
     /// Allows overriding the function which emits the text strings forming the
     /// errors and warnings if for some reason the `STDERR_FILENO` file descriptor
@@ -540,7 +544,7 @@ extern "C" {
     /// Please note that doing anything which tries to allocate memory in this
     /// function is likely to result in a crash or deadlock.
     #[no_mangle]
-    pub static mut malloc_message: extern fn (cbopaque: *mut c_void, s: *const c_char);
+    pub static mut malloc_message: extern "C" fn(cbopaque: *mut c_void, s: *const c_char);
 }
 
 /// Extent lifetime management functions.
@@ -549,15 +553,15 @@ pub type extent_hooks_t = extent_hooks_s;
 /// Extent lifetime management functions.
 #[repr(C)]
 pub struct extent_hooks_s {
-	  pub alloc: *mut extent_alloc_t,
-	  pub dalloc: *mut extent_dalloc_t,
-	  pub destroy: *mut extent_destroy_t,
-	  pub commit: *mut extent_commit_t,
-	  pub decommit: *mut extent_decommit_t,
-	  pub purge_lazy: *mut extent_purge_t,
-	  pub purge_forced: *mut extent_purge_t,
-	  pub split: *mut extent_split_t,
-	  pub merge: *mut extent_merge_t,
+    pub alloc: *mut extent_alloc_t,
+    pub dalloc: *mut extent_dalloc_t,
+    pub destroy: *mut extent_destroy_t,
+    pub commit: *mut extent_commit_t,
+    pub decommit: *mut extent_decommit_t,
+    pub purge_lazy: *mut extent_purge_t,
+    pub purge_forced: *mut extent_purge_t,
+    pub split: *mut extent_split_t,
+    pub merge: *mut extent_merge_t,
 }
 
 /// Extent allocation function.
@@ -587,13 +591,15 @@ pub struct extent_hooks_s {
 ///
 /// * the `size` parameter is not a multiple of the page size
 /// * the `alignment` parameter is not a power of two at least as large as the page size
-pub type extent_alloc_t = extern fn (extent_hooks: *mut extent_hooks_t,
- 	                                   new_addr: *mut c_void,
- 	                                   size: size_t,
- 	                                   alignment: size_t,
- 	                                   zero: *mut c_bool,
- 	                                   commit: *mut c_bool,
- 	                                   arena_ind: c_uint) -> *mut c_void;
+pub type extent_alloc_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    new_addr: *mut c_void,
+    size: size_t,
+    alignment: size_t,
+    zero: *mut c_bool,
+    commit: *mut c_bool,
+    arena_ind: c_uint,
+) -> *mut c_void;
 
 /// Extent deallocation function.
 ///
@@ -605,11 +611,13 @@ pub type extent_alloc_t = extern fn (extent_hooks: *mut extent_hooks_t,
 /// the virtual memory mapping associated with the extent remains mapped, in the
 /// same commit state, and available for future use, in which case it will be
 /// automatically retained for later reuse.
-pub type extent_dalloc_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                      addr: *mut c_void,
-                                      size: size_t,
-                                      committed: c_bool,
-                                      arena_ind: c_uint) -> c_bool;
+pub type extent_dalloc_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) -> c_bool;
 
 /// Extent destruction function.
 ///
@@ -618,11 +626,13 @@ pub type extent_dalloc_t = extern fn (extent_hooks: *mut extent_hooks_t,
 ///
 /// This function may be called to destroy retained extents during arena
 /// destruction (see `arena.<i>.destroy`).
-pub type extent_destroy_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                       addr: *mut c_void,
-                                       size: size_t,
-                                       committed: c_bool,
-                                       arena_ind: c_uint);
+pub type extent_destroy_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+);
 
 /// Extent commit function.
 ///
@@ -635,12 +645,14 @@ pub type extent_destroy_t = extern fn (extent_hooks: *mut extent_hooks_t,
 /// satisfies physical memory needs on demand via soft page faults. If the
 /// function returns `true`, this indicates insufficient physical memory to
 /// satisfy the request.
-pub type extent_commit_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                      addr: *mut c_void,
-                                      size: size_t,
-                                      offset: size_t,
-                                      length: size_t,
-                                      arena_ind: c_uint) -> c_bool;
+pub type extent_commit_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool;
 
 /// Extent decommit function.
 ///
@@ -652,12 +664,14 @@ pub type extent_commit_t = extern fn (extent_hooks: *mut extent_hooks_t,
 /// If the function returns `true`, this indicates opt-out from decommit; the
 /// memory remains committed and available for future use, in which case it will
 /// be automatically retained for later reuse.
-pub type extent_decommit_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                        addr: *mut c_void,
-                                        size: size_t,
-                                        offset: size_t,
-                                        length: size_t,
-                                        arena_ind: c_uint) -> c_bool;
+pub type extent_decommit_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool;
 
 /// Extent purge function.
 ///
@@ -671,12 +685,14 @@ pub type extent_decommit_t = extern fn (extent_hooks: *mut extent_hooks_t,
 /// function immediately purges, and the pages within the virtual memory range
 /// will be zero-filled the next time they are accessed. If the function returns
 /// `true`, this indicates failure to purge.
-pub type extent_purge_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                     addr: *mut c_void,
-                                     size: size_t,
-                                     offset: size_t,
-                                     length: size_t,
-                                     arena_ind: c_uint) -> c_bool;
+pub type extent_purge_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool;
 
 /// Extent split function.
 ///
@@ -687,13 +703,15 @@ pub type extent_purge_t = extern fn (extent_hooks: *mut extent_hooks_t,
 ///
 /// If the function returns `true`, this indicates that the extent remains
 /// unsplit and therefore should continue to be operated on as a whole.
-pub type extent_split_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                     addr: *mut c_void,
-                                     size: size_t,
-                                     size_a: size_t,
-                                     size_b: size_t,
-                                     committed: c_bool,
-                                     arena_ind: c_uint) -> c_bool;
+pub type extent_split_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    size_a: size_t,
+    size_b: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) -> c_bool;
 
 /// Extent merge function.
 ///
@@ -705,13 +723,15 @@ pub type extent_split_t = extern fn (extent_hooks: *mut extent_hooks_t,
 /// If the function returns `true`, this indicates that the extents remain
 /// distinct mappings and therefore should continue to be operated on
 /// independently.
-pub type extent_merge_t = extern fn (extent_hooks: *mut extent_hooks_t,
-                                     addr_a: *mut c_void,
-                                     size_a: size_t,
-                                     addr_b: *mut c_void,
-                                     size_b: size_t,
-                                     committed: c_bool,
-                                     arena_ind: c_uint) -> c_bool;
+pub type extent_merge_t = extern "C" fn(
+    extent_hooks: *mut extent_hooks_t,
+    addr_a: *mut c_void,
+    size_a: size_t,
+    addr_b: *mut c_void,
+    size_b: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) -> c_bool;
 
 // These symbols are used by jemalloc on android but the really old android
 // we're building on doesn't have them defined, so just make sure the symbols
@@ -719,9 +739,10 @@ pub type extent_merge_t = extern fn (extent_hooks: *mut extent_hooks_t,
 #[no_mangle]
 #[cfg(target_os = "android")]
 #[doc(hidden)]
-pub extern "C" fn pthread_atfork(_prefork: *mut u8,
-                                 _postfork_parent: *mut u8,
-                                 _postfork_child: *mut u8)
-                                 -> i32 {
+pub extern "C" fn pthread_atfork(
+    _prefork: *mut u8,
+    _postfork_parent: *mut u8,
+    _postfork_child: *mut u8,
+) -> i32 {
     0
 }

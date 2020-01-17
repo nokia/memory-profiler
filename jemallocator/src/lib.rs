@@ -22,30 +22,36 @@
 extern crate jemalloc_sys;
 extern crate libc;
 
+#[cfg(feature = "alloc_trait")]
+use core::alloc::{Alloc, AllocErr, CannotReallocInPlace, Excess};
+use core::alloc::{GlobalAlloc, Layout};
 use core::mem;
 use core::ptr;
-use core::alloc::{GlobalAlloc, Layout};
-#[cfg(feature = "alloc_trait")] use core::alloc::{Alloc, Excess, CannotReallocInPlace, AllocErr};
-#[cfg(feature = "alloc_trait")] use core::ptr::NonNull;
+#[cfg(feature = "alloc_trait")]
+use core::ptr::NonNull;
 
 use libc::{c_int, c_void};
 
 // The minimum alignment guaranteed by the architecture. This value is used to
 // add fast paths for low alignment values. In practice, the alignment is a
 // constant at the call site and the branch will be optimized out.
-#[cfg(all(any(target_arch = "arm",
-              target_arch = "mips",
-              target_arch = "mipsel",
-              target_arch = "powerpc")))]
+#[cfg(all(any(
+    target_arch = "arm",
+    target_arch = "mips",
+    target_arch = "mipsel",
+    target_arch = "powerpc"
+)))]
 const MIN_ALIGN: usize = 8;
-#[cfg(all(any(target_arch = "x86",
-              target_arch = "x86_64",
-              target_arch = "aarch64",
-              target_arch = "powerpc64",
-              target_arch = "powerpc64le",
-              target_arch = "mips64",
-              target_arch = "s390x",
-              target_arch = "sparc64")))]
+#[cfg(all(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "powerpc64",
+    target_arch = "powerpc64le",
+    target_arch = "mips64",
+    target_arch = "s390x",
+    target_arch = "sparc64"
+)))]
 const MIN_ALIGN: usize = 16;
 
 fn layout_to_flags(align: usize, size: usize) -> c_int {
@@ -95,10 +101,7 @@ unsafe impl GlobalAlloc for Jemalloc {
     }
 
     #[inline]
-    unsafe fn realloc(&self,
-                      ptr: *mut u8,
-                      layout: Layout,
-                      new_size: usize) -> *mut u8 {
+    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let flags = layout_to_flags(layout.align(), new_size);
         let ptr = ffi::rallocx(ptr as *mut c_void, new_size, flags);
         ptr as *mut u8
@@ -123,10 +126,12 @@ unsafe impl Alloc for Jemalloc {
     }
 
     #[inline]
-    unsafe fn realloc(&mut self,
-                      ptr: NonNull<u8>,
-                      layout: Layout,
-                      new_size: usize) -> Result<NonNull<u8>, AllocErr> {
+    unsafe fn realloc(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+        new_size: usize,
+    ) -> Result<NonNull<u8>, AllocErr> {
         NonNull::new(GlobalAlloc::realloc(self, ptr.as_ptr(), layout, new_size)).ok_or(AllocErr)
     }
 
@@ -143,10 +148,12 @@ unsafe impl Alloc for Jemalloc {
     }
 
     #[inline]
-    unsafe fn realloc_excess(&mut self,
-                      ptr: NonNull<u8>,
-                      layout: Layout,
-                      new_size: usize) -> Result<Excess, AllocErr> {
+    unsafe fn realloc_excess(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+        new_size: usize,
+    ) -> Result<Excess, AllocErr> {
         let flags = layout_to_flags(layout.align(), new_size);
         let ptr = ffi::rallocx(ptr.cast().as_ptr(), new_size, flags);
         if let Some(nonnull) = NonNull::new(ptr as *mut u8) {
@@ -167,18 +174,22 @@ unsafe impl Alloc for Jemalloc {
     }
 
     #[inline]
-    unsafe fn grow_in_place(&mut self,
-                            ptr: NonNull<u8>,
-                            layout: Layout,
-                            new_size: usize) -> Result<(), CannotReallocInPlace> {
+    unsafe fn grow_in_place(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+        new_size: usize,
+    ) -> Result<(), CannotReallocInPlace> {
         self.shrink_in_place(ptr, layout, new_size)
     }
 
     #[inline]
-    unsafe fn shrink_in_place(&mut self,
-                              ptr: NonNull<u8>,
-                              layout: Layout,
-                              new_size: usize) -> Result<(), CannotReallocInPlace> {
+    unsafe fn shrink_in_place(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+        new_size: usize,
+    ) -> Result<(), CannotReallocInPlace> {
         let flags = layout_to_flags(layout.align(), new_size);
         let shrunk_size = ffi::xallocx(ptr.cast().as_ptr(), new_size, 0, flags);
         debug_assert!(shrunk_size >= new_size);
@@ -213,11 +224,13 @@ pub unsafe fn mallctl_fetch<T>(name: &[u8], t: &mut T) -> Result<(), i32> {
     }
     let mut t_size = mem::size_of::<T>();
     let t_ptr = t as *mut T as *mut _;
-    let code = ffi::mallctl(name.as_ptr() as *const _,
-                            t_ptr,
-                            &mut t_size,
-                            ptr::null_mut(),
-                            0);
+    let code = ffi::mallctl(
+        name.as_ptr() as *const _,
+        t_ptr,
+        &mut t_size,
+        ptr::null_mut(),
+        0,
+    );
     if code != 0 {
         return Err(code);
     }
@@ -234,11 +247,13 @@ pub unsafe fn mallctl_set<T>(name: &[u8], mut t: T) -> Result<(), i32> {
         return Err(libc::EINVAL);
     }
     let size = mem::size_of::<T>();
-    let code = ffi::mallctl(name.as_ptr() as *const _,
-                            ptr::null_mut(),
-                            ptr::null_mut(),
-                            &mut t as *mut T as *mut _,
-                            size);
+    let code = ffi::mallctl(
+        name.as_ptr() as *const _,
+        ptr::null_mut(),
+        ptr::null_mut(),
+        &mut t as *mut T as *mut _,
+        size,
+    );
     if code != 0 {
         return Err(code);
     }
