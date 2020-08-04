@@ -15,6 +15,7 @@ lazy_static = "1"
 memmap = "0.7"
 log = "0.4"
 glob = "0.2"
+nix = "0.17"
 jemallocator = { path = "../jemallocator", default-features = false }
 jemalloc-sys = { path = "../jemallocator/jemalloc-sys", default-features = false }
 
