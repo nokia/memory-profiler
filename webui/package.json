@@ -20,7 +20,7 @@
     "dygraphs": "^2.1.0",
     "feather-icons": "^4.7.3",
     "font-awesome": "^4.7.0",
-    "jquery": "^3.2.1",
+    "jquery": "^3.5.0",
     "lodash": "^4.17.10",
     "memoize-one": "^4.0.0",
     "popper.js": "^1.14.3",
