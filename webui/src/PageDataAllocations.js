@@ -1,6 +1,7 @@
 import _ from "lodash";
 import React from "react";
 import ReactTable from "react-table";
+import Graph from "./Graph.js";
 import { FormGroup, Label, Input, Button, ButtonGroup, Modal, ModalFooter, ModalBody, ModalHeader, Badge } from "reactstrap";
 import { Link } from "react-router-dom";
 import { ContextMenu, MenuItem, ContextMenuTrigger } from "react-contextmenu";
@@ -8,6 +9,24 @@ import classNames from "classnames";
 import Feather from "./Feather.js";
 import Tabbed from "./Tabbed.js";
 import { fmt_size, fmt_date_unix, fmt_date_timeval, fmt_hex16, fmt_uptime, fmt_uptime_timeval, update_query, create_query, extract_query, format_frame } from "./utils.js";
+
+export class BacktraceGraph extends Graph {
+
+    componentDidMount() {
+        super.componentDidMount();
+        fetch( (this.props.sourceUrl || "") + "/data/" + this.props.id + "/timeline?backtraces=" + this.props.backtrace_id )
+            .then( rsp => rsp.json() )
+            .then( json => {
+                //this.setState( {data: json} )
+                this.props.data = json;
+                //this.cache = None;
+                //this.forceRefresh();
+                this.forceRefresh();
+                this.forceUpdate();
+            });
+    }
+
+}
 
 const PERCENTAGE_REGEX = /^(\d+)%$/;
 const DATE_REGEX = /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/;
@@ -1013,6 +1032,8 @@ export default class PageDataAllocations extends React.Component {
             expanded[ i ] = true;
         }
 
+        let placeholder = {"xs":[1594837555, 	1594837555], "allocated_size":[1, 2]};
+
         return (
             <div className="PageDataAllocations">
                 <Control
@@ -1071,16 +1092,42 @@ export default class PageDataAllocations extends React.Component {
                     SubComponent={row => {
                         const cell = backtrace_cell( show_full_backtraces, row.original.backtrace );
 
-                        const q = _.omit( extract_query( this.props.location.search ), "count", "skip", "group_allocations", "sort_by", "order" );
+                        const params = extract_query( this.props.location.search );
+                        const q = _.omit( params, "count", "skip", "group_allocations", "sort_by", "order" );
                         q.backtraces = row.original.backtrace_id;
                         const url = "/#" + this.props.location.pathname + "?" + create_query( q ).toString();
 
-                        return <div className="backtrace-cell" onContextMenu={event => {
-                            this.setState({
-                                showOnlyAllocationsUrl: url
-                            });
-                            return this.menu_trigger.handleContextClick( event );
-                        }}>{cell}</div>;
+                        const group_allocations = params.group_allocations === "true" || params.group_allocations === "1";
+                        if(group_allocations) {
+                            return <div className="backtrace-cell" onContextMenu={event => {
+                                this.setState({
+                                    showOnlyAllocationsUrl: url
+                                });
+                                return this.menu_trigger.handleContextClick( event );
+                            }}>  
+                            <BacktraceGraph
+                                key={String(this.props.id)+"_"+String(row.original.backtrace_id)+String(Math.random())}
+                                title="Memory usage"
+                                data={placeholder}
+                                y_accessor="allocated_size"
+                                y_label=""
+                                x0={this.state.x0}
+                                x1={this.state.x1}
+                                fill={true}
+                                xUnit="unix_timestamp"
+                                id={this.props.id}
+                                sourceUrl={this.props.sourceUrl}
+                                backtrace_id={row.original.backtrace_id}
+                            />
+                            {cell}</div>;
+                        } else {
+                            return <div className="backtrace-cell" onContextMenu={event => {
+                                this.setState({
+                                    showOnlyAllocationsUrl: url
+                                });
+                                return this.menu_trigger.handleContextClick( event );
+                            }}>{cell}</div>;
+                        }
                     }}
                     expanded={expanded}
                 />

@@ -499,6 +499,7 @@ fn handler_timeline( req: HttpRequest ) -> Result< HttpResponse > {
     let mut allocations = Vec::with_capacity( maximum_len );
     let mut deallocations = Vec::with_capacity( maximum_len );
     let mut x = (-1_i32) as u64;
+    let filter: protocol::AllocFilter = query( &req )?;
 
     for op in data.operations() {
         let timestamp = match op {
@@ -506,6 +507,34 @@ fn handler_timeline( req: HttpRequest ) -> Result< HttpResponse > {
             Operation::Deallocation { ref deallocation, .. } => deallocation.timestamp,
             Operation::Reallocation { ref new_allocation, .. } => new_allocation.timestamp
         };
+
+        let mut filter_out_backtrace = false;
+        let mut filter_in_reallocated_backtrace = false;
+        match filter.backtraces {
+            Some(v) => {
+                match op {
+                    Operation::Allocation { ref allocation, .. } => {
+                        if allocation.backtrace != BacktraceId::new( v as _ )  {
+                            filter_out_backtrace = true;
+                        }
+                    },
+                    Operation::Deallocation { ref allocation, .. } => {
+                        if allocation.backtrace != BacktraceId::new( v as _ )  {
+                            filter_out_backtrace = true;
+                        }
+                    },
+                    Operation::Reallocation { ref new_allocation, ref old_allocation, .. } => {
+                        if old_allocation.backtrace != BacktraceId::new( v as _ )  {
+                            filter_out_backtrace = true;
+                        }
+                        if new_allocation.backtrace == BacktraceId::new( v as _ )  {
+                            filter_in_reallocated_backtrace = true;
+                        }
+                    }
+                };      
+            },
+            None => {},
+        }
 
         let timestamp = timestamp.as_secs();
         assert!( x == (-1_i32 as u64) || timestamp >= x );
@@ -570,29 +599,49 @@ fn handler_timeline( req: HttpRequest ) -> Result< HttpResponse > {
         let leaked_size = leaked_size.last_mut().unwrap();
         let leaked_count = leaked_count.last_mut().unwrap();
 
-        let (size_delta_v, count_delta_v) = match op {
-            Operation::Allocation { allocation, .. } => {
-                *allocations += 1;
-                if allocation.deallocation.is_none() {
-                    *leaked_size += allocation.size;
-                    *leaked_count += 1;
+        let (size_delta_v, count_delta_v) = if filter_out_backtrace {
+            match op {
+                Operation::Reallocation { new_allocation, old_allocation, .. } => {
+                    if filter_in_reallocated_backtrace {
+                        if new_allocation.deallocation.is_none() {
+                            *leaked_size += new_allocation.size;
+                            *leaked_count += 1;
+                        }
+                        (new_allocation.size as i64, 1)
+                    } else {
+                        (0, 0)    
+                    }
+                },
+                _ => {
+                    // This operation is from other backtrace, skip it
+                    (0, 0)
                 }
+            }
+        } else {
+            match op {
+                Operation::Allocation { allocation, .. } => {
+                    *allocations += 1;
+                    if allocation.deallocation.is_none() {
+                        *leaked_size += allocation.size;
+                        *leaked_count += 1;
+                    }
 
-                (allocation.size as i64, 1)
-            },
-            Operation::Deallocation { allocation, .. } => {
-                *deallocations += 1;
-                (allocation.size as i64 * -1, -1)
-            },
-            Operation::Reallocation { new_allocation, old_allocation, .. } => {
-                *allocations += 1;
-                *deallocations += 1;
-                if new_allocation.deallocation.is_none() {
-                    *leaked_size += new_allocation.size;
-                    *leaked_count += 1;
+                    (allocation.size as i64, 1)
+                },
+                Operation::Deallocation { allocation, .. } => {
+                    *deallocations += 1;
+                    (allocation.size as i64 * -1, -1)
+                },
+                Operation::Reallocation { new_allocation, old_allocation, .. } => {
+                    *allocations += 1;
+                    *deallocations += 1;
+                    if new_allocation.deallocation.is_none() {
+                        *leaked_size += new_allocation.size;
+                        *leaked_count += 1;
+                    }
+
+                    (new_allocation.size as i64 - old_allocation.size as i64, 0)
                 }
-
-                (new_allocation.size as i64 - old_allocation.size as i64, 0)
             }
         };
 
